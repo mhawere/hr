@@ -1,0 +1,359 @@
+/* ID Card Specific Styles */
+@page {
+    size: 85.6mm 53.98mm; /* Standard ID card size */
+    margin: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: white;
+    width: 85.6mm;
+    height: 53.98mm;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.id-card {
+    width: 100%;
+    height: 100%;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Header Section */
+.card-header {
+    background: linear-gradient(135deg, #2E5BBA 0%, #1976D2 100%);
+    color: white;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 40px;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.logo-img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    background: white;
+    border-radius: 2px;
+    padding: 2px;
+}
+
+.university-info {
+    flex: 1;
+    text-align: center;
+}
+
+.university-name {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.1;
+    margin-bottom: 2px;
+}
+
+.university-tagline {
+    font-size: 6px;
+    opacity: 0.9;
+    font-weight: 400;
+}
+
+/* Main Content */
+.card-content {
+    flex: 1;
+    background: linear-gradient(135deg, #4A73C4 0%, #2E5BBA 100%);
+    display: flex;
+    padding: 12px;
+    gap: 10px;
+    color: white;
+}
+
+.photo-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+}
+
+.employee-photo {
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
+    border: 2px solid white;
+    object-fit: cover;
+    background: rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+
+.photo-placeholder {
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.2);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+}
+
+.employee-id {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-align: center;
+    min-width: 50px;
+}
+
+.info-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+}
+
+.employee-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #FFD700;
+    line-height: 1.1;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.employee-position {
+    background: rgba(255,255,255,0.9);
+    color: #2E5BBA;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: inline-block;
+    margin-bottom: 6px;
+}
+
+.employee-department {
+    font-size: 9px;
+    opacity: 0.9;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+}
+
+/* Golden Accent Bar */
+.accent-bar {
+    height: 6px;
+    background: linear-gradient(90deg, #FFD700 0%, #FFA000 100%);
+    width: 100%;
+}
+
+/* Footer Section */
+.card-footer {
+    background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
+    color: white;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 35px;
+    text-align: center;
+}
+
+.university-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+}
+
+.footer-title {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.footer-tagline {
+    font-size: 6px;
+    opacity: 0.8;
+}
+
+.qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.qr-code {
+    width: 25px;
+    height: 25px;
+    background: white;
+    border-radius: 3px;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qr-code img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.qr-placeholder {
+    width: 100%;
+    height: 100%;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 6px;
+    color: #666;
+    text-align: center;
+}
+
+.qr-label {
+    font-size: 5px;
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Back of Card */
+.card-back {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    justify-content: space-between;
+}
+
+.validity-section {
+    text-align: center;
+    background: white;
+    padding: 8px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.validity-title {
+    font-size: 8px;
+    color: #2E5BBA;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.validity-period {
+    font-size: 10px;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.lost-card-info {
+    background: #ffebee;
+    border: 1px solid #ffcdd2;
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+}
+
+.lost-card-title {
+    font-size: 7px;
+    color: #c62828;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+}
+
+.lost-card-text {
+    font-size: 6px;
+    color: #666;
+    line-height: 1.3;
+}
+
+/* Print Styles */
+@media print {
+    @page {
+        size: 85.6mm 53.98mm;
+        margin: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    body {
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .id-card {
+        page-break-after: always;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .card-back {
+        page-break-before: always;
+    }
+}
+
+/* Responsive adjustments for preview */
+@media screen {
+    body {
+        padding: 20px;
+        background: #f0f0f0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+    }
+    
+    .id-card {
+        transform: scale(2);
+        margin: 40px;
+    }
+}

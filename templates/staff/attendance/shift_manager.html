@@ -1,0 +1,3958 @@
+{% extends "base.html" %}
+
+{% block title %}Shift Manager - HR Management System{% endblock %}
+
+{% block page_title %}Shift Manager{% endblock %}
+
+{% block content %}
+<div class="shift-manager-container">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <div class="header-info">
+                <h1>Shift Management</h1>
+                <p>Manage work schedules and shift assignments</p>
+            </div>
+            <button class="btn-create-shift" onclick="openShiftModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Create New Shift
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12,6 12,12 16,14"></polyline>
+                </svg>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ shifts|length }}</div>
+                <div class="stat-label">Total Shifts</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon active">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22,4 12,14.01 9,11.01"></polyline>
+                </svg>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ shifts|selectattr('is_active', 'equalto', True)|list|length }}</div>
+                <div class="stat-label">Active Shifts</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ shifts|sum(attribute='assigned_employees_count', start=0) }}</div>
+                <div class="stat-label">Assigned Employees</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shifts Table -->
+    {% if shifts %}
+    <div class="table-container">
+        <div class="table-header">
+            <h2>Shift Schedules</h2>
+            <div class="table-actions">
+                <div class="search-container">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="M21 21l-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" placeholder="Search shifts..." id="searchInput" onkeyup="filterTable()">
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-wrapper">
+            <table class="shifts-table" id="shiftsTable">
+                <thead>
+                    <tr>
+                        <th class="shift-type-col">Type</th>
+                        <th class="shift-name-col">Name</th>
+                        <th class="day-col">Monday</th>
+                        <th class="day-col">Tuesday</th>
+                        <th class="day-col">Wednesday</th>
+                        <th class="day-col">Thursday</th>
+                        <th class="day-col">Friday</th>
+                        <th class="day-col">Saturday</th>
+                        <th class="day-col">Sunday</th>
+                        <th class="actions-col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    {% for shift in shifts %}
+    <tr class="shift-row {% if not shift.is_active %}inactive{% endif %}">
+        <td class="shift-type">
+            <span class="type-badge {{ shift.shift_type.value if shift.shift_type.value else shift.shift_type }}">
+                {% if shift.shift_type.value == 'standard' or shift.shift_type == 'standard' %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Standard
+                {% else %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    Dynamic
+                {% endif %}
+            </span>
+        </td>
+        <td class="shift-name">
+            <div class="name-content">
+                <span class="name">{{ shift.name }}</span>
+                {% if shift.description %}
+                <span class="description">{{ shift.description }}</span>
+                {% endif %}
+                <div class="shift-meta">
+                    <span class="status-indicator {{ 'active' if shift.is_active else 'inactive' }}"></span>
+                    <span class="employee-count">{{ shift.assigned_employees_count or 0 }} employees</span>
+                </div>
+            </div>
+        </td>
+        
+        <!-- Days of the week -->
+        {% if shift.shift_type.value == 'standard' or shift.shift_type == 'standard' %}
+            <!-- Standard Shift: Monday to Friday use weekday times -->
+            {% for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] %}
+            <td class="day-time">
+                {% if shift.weekday_start and shift.weekday_end %}
+                <div class="time-slot">
+                    {{ shift.weekday_start.strftime('%H:%M') }} - {{ shift.weekday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+            {% endfor %}
+            
+            <!-- Saturday -->
+            <td class="day-time">
+                {% if shift.saturday_start and shift.saturday_end %}
+                <div class="time-slot">
+                    {{ shift.saturday_start.strftime('%H:%M') }} - {{ shift.saturday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+            
+            <!-- Sunday -->
+            <td class="day-time">
+                {% if shift.sunday_start and shift.sunday_end %}
+                <div class="time-slot">
+                    {{ shift.sunday_start.strftime('%H:%M') }} - {{ shift.sunday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+            
+        {% else %}
+            <!-- Dynamic Shift: Each day has individual times -->
+            
+            <!-- Monday -->
+            <td class="day-time">
+                {% if shift.monday_start and shift.monday_end %}
+                <div class="time-slot">
+                    {{ shift.monday_start.strftime('%H:%M') }} - {{ shift.monday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+            
+            <!-- Tuesday -->
+            <td class="day-time">
+                {% if shift.tuesday_start and shift.tuesday_end %}
+                <div class="time-slot">
+                    {{ shift.tuesday_start.strftime('%H:%M') }} - {{ shift.tuesday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+            
+            <!-- Wednesday -->
+            <td class="day-time">
+                {% if shift.wednesday_start and shift.wednesday_end %}
+                <div class="time-slot">
+                    {{ shift.wednesday_start.strftime('%H:%M') }} - {{ shift.wednesday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+            
+            <!-- Thursday -->
+            <td class="day-time">
+                {% if shift.thursday_start and shift.thursday_end %}
+                <div class="time-slot">
+                    {{ shift.thursday_start.strftime('%H:%M') }} - {{ shift.thursday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+            
+            <!-- Friday -->
+            <td class="day-time">
+                {% if shift.friday_start and shift.friday_end %}
+                <div class="time-slot">
+                    {{ shift.friday_start.strftime('%H:%M') }} - {{ shift.friday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+            
+            <!-- Saturday -->
+            <td class="day-time">
+                {% if shift.saturday_start and shift.saturday_end %}
+                <div class="time-slot">
+                    {{ shift.saturday_start.strftime('%H:%M') }} - {{ shift.saturday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+            
+            <!-- Sunday -->
+            <td class="day-time">
+                {% if shift.sunday_start and shift.sunday_end %}
+                <div class="time-slot">
+                    {{ shift.sunday_start.strftime('%H:%M') }} - {{ shift.sunday_end.strftime('%H:%M') }}
+                </div>
+                {% else %}
+                <div class="no-work">NWD</div>
+                {% endif %}
+            </td>
+        {% endif %}
+        
+        <td class="actions">
+            <div class="action-buttons">
+                <button class="btn-action edit" onclick="editShift({{ shift.id }})" title="Edit shift">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                </button>
+                <button class="btn-action toggle" onclick="toggleShift({{ shift.id }})" title="Toggle status">
+                    {% if shift.is_active %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="6" y="4" width="4" height="16"></rect>
+                        <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                    {% else %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5,3 19,12 5,21 5,3"></polygon>
+                    </svg>
+                    {% endif %}
+                </button>
+                <button class="btn-action delete" onclick="deleteShift({{ shift.id }})" title="Delete shift">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3,6 5,6 21,6"></polyline>
+                        <path d="M19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,2h4a2,2 0 0,1 2,2v2"></path>
+                    </svg>
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12,6 12,12 16,14"></polyline>
+            </svg>
+        </div>
+        <h3>No shifts created yet</h3>
+        <p>Create your first shift to start managing work schedules for your team</p>
+        <button class="btn-create-shift" onclick="openShiftModal()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Create First Shift
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create/Edit Shift Modal -->
+<div id="shiftModal" class="modal">
+    <div class="modal-backdrop" onclick="closeShiftModal()"></div>
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2 id="modal-title">Create New Shift</h2>
+            <button class="modal-close" onclick="closeShiftModal()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="modal-body">
+            <!-- Shift Type Selection -->
+            <div class="shift-type-selection" id="shift-type-selection">
+                <div class="type-option" data-type="standard" onclick="selectShiftType('standard')">
+                    <div class="type-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </div>
+                    <div class="type-content">
+                        <h3>Standard Shift</h3>
+                        <p>Same schedule for weekdays with weekend options</p>
+                    </div>
+                </div>
+                
+                <div class="type-option" data-type="dynamic" onclick="selectShiftType('dynamic')">
+                    <div class="type-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                    </div>
+                    <div class="type-content">
+                        <h3>Dynamic Shift</h3>
+                        <p>Custom schedule for each day of the week</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Standard Shift Form -->
+            <form id="standardShiftForm" class="shift-form" method="post" action="/attendance/shift-manager/standard" style="display: none;">
+                <input type="hidden" id="std-shift-id" name="shift_id" value="">
+                
+                <div class="form-section">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Basic Information
+                    </h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="std-name">
+                                Shift Name
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" id="std-name" name="name" required placeholder="e.g., Morning Shift" maxlength="100">
+                            <div class="input-hint">Choose a descriptive name for this shift</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="std-description">Description</label>
+                            <input type="text" id="std-description" name="description" placeholder="e.g., Regular business hours" maxlength="200">
+                            <div class="input-hint">Optional additional details</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        Weekday Schedule
+                        <span class="required">*</span>
+                    </h3>
+                    <div class="schedule-container">
+                        <div class="schedule-item weekday-schedule">
+                            <div class="schedule-header">
+                                <div class="schedule-label">
+                                    <div class="day-indicator weekday">
+                                        <span>MON</span>
+                                        <span>TUE</span>
+                                        <span>WED</span>
+                                        <span>THU</span>
+                                        <span>FRI</span>
+                                    </div>
+                                    <span class="schedule-title">Monday - Friday</span>
+                                </div>
+                            </div>
+                            <div class="time-inputs-container">
+                                <div class="time-inputs">
+                                    <div class="time-group">
+                                        <label>Start Time</label>
+                                        <input type="time" name="weekday_start" id="weekday_start" required value="09:00">
+                                    </div>
+                                    <div class="time-separator">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="9,18 15,12 9,6"></polyline>
+                                        </svg>
+                                    </div>
+                                    <div class="time-group">
+                                        <label>End Time</label>
+                                        <input type="time" name="weekday_end" id="weekday_end" required value="17:00">
+                                    </div>
+                                </div>
+                                <div class="schedule-duration" id="weekday-duration">8 hours</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        Weekend Configuration
+                    </h3>
+                    
+                    <div class="weekend-config">
+                        <div class="form-group">
+                            <label for="std-weekend-policy">Weekend Policy</label>
+                            <select id="std-weekend-policy" name="weekend_policy">
+                                <option value="none" selected>Both days off</option>
+                                <option value="both">Work both Saturday and Sunday</option>
+                                <option value="saturday_only">Saturday work, Sunday off</option>
+                                <option value="sunday_only">Sunday work, Saturday off</option>
+                            </select>
+                            <div class="input-hint">Choose which weekend days are working days</div>
+                        </div>
+                        
+                        <!-- Saturday Schedule Section -->
+                        <div id="saturday-schedule-section" class="schedule-container" style="display: none;">
+                            <div class="schedule-item weekend-schedule">
+                                <div class="schedule-header">
+                                    <div class="schedule-label">
+                                        <div class="day-indicator weekend">
+                                            <span>SAT</span>
+                                        </div>
+                                        <span class="schedule-title">Saturday Schedule</span>
+                                    </div>
+                                </div>
+                                <div class="time-inputs-container">
+                                    <div class="time-inputs">
+                                        <div class="time-group">
+                                            <label>Start Time</label>
+                                            <input type="time" name="saturday_start" id="saturday_start" value="09:00">
+                                        </div>
+                                        <div class="time-separator">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="9,18 15,12 9,6"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="time-group">
+                                            <label>End Time</label>
+                                            <input type="time" name="saturday_end" id="saturday_end" value="17:00">
+                                        </div>
+                                    </div>
+                                    <div class="schedule-duration" id="saturday-duration">8 hours</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sunday Schedule Section -->
+                        <div id="sunday-schedule-section" class="schedule-container" style="display: none;">
+                            <div class="schedule-item weekend-schedule">
+                                <div class="schedule-header">
+                                    <div class="schedule-label">
+                                        <div class="day-indicator weekend">
+                                            <span>SUN</span>
+                                        </div>
+                                        <span class="schedule-title">Sunday Schedule</span>
+                                    </div>
+                                </div>
+                                <div class="time-inputs-container">
+                                    <div class="time-inputs">
+                                        <div class="time-group">
+                                            <label>Start Time</label>
+                                            <input type="time" name="sunday_start" id="sunday_start" value="09:00">
+                                        </div>
+                                        <div class="time-separator">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="9,18 15,12 9,6"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="time-group">
+                                            <label>End Time</label>
+                                            <input type="time" name="sunday_end" id="sunday_end" value="17:00">
+                                        </div>
+                                    </div>
+                                    <div class="schedule-duration" id="sunday-duration">8 hours</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Both Days Schedule Section (when both selected) -->
+                        <div id="both-weekend-schedule-section" class="schedule-container" style="display: none;">
+                            <div class="schedule-item weekend-schedule">
+                                <div class="schedule-header">
+                                    <div class="schedule-label">
+                                        <div class="day-indicator weekend">
+                                            <span>SAT SUN</span>
+                                        </div>
+                                        <span class="schedule-title">Weekend Schedule (Both Days)</span>
+                                    </div>
+                                </div>
+                                <div class="time-inputs-container">
+                                    <div class="time-inputs">
+                                        <div class="time-group">
+                                            <label>Start Time</label>
+                                            <input type="time" id="both-weekend-start" value="09:00">
+                                        </div>
+                                        <div class="time-separator">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="9,18 15,12 9,6"></polyline>
+                                            </svg>
+                                        </div>
+                                        <div class="time-group">
+                                            <label>End Time</label>
+                                            <input type="time" id="both-weekend-end" value="17:00">
+                                        </div>
+                                    </div>
+                                    <div class="schedule-duration" id="both-weekend-duration">8 hours</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="weekend-off-notice" class="off-day-notice">
+                            <div class="notice-content">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22,4 12,14.01 9,11.01"></polyline>
+                                </svg>
+                                <span>Weekend days are configured as off days</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 1v6m0 6v6"></path>
+                            <path d="m15.14 4.14 4.24 4.24m-8.48 8.48-4.24-4.24"></path>
+                            <path d="m4.14 15.14 4.24-4.24m8.48-8.48 4.24 4.24"></path>
+                        </svg>
+                        Shift Settings
+                    </h3>
+                    <div class="settings-container">
+                        <div class="setting-item">
+                            <label class="checkbox-container">
+                                <input type="checkbox" name="is_active" value="true" checked>
+                                <span class="checkmark"></span>
+                                <div class="checkbox-content">
+                                    <span class="checkbox-text">Activate shift immediately</span>
+                                    <span class="checkbox-hint">The shift will be available for employee assignment</span>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="shift-summary" id="shift-summary">
+                            <h4>Shift Summary</h4>
+                            <div class="summary-content">
+                                <div class="summary-item">
+                                    <span class="summary-label">Weekdays:</span>
+                                    <span class="summary-value" id="summary-weekdays">09:00 - 17:00 (8 hours)</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Weekend:</span>
+                                    <span class="summary-value" id="summary-weekend">Both days off</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Total weekly hours:</span>
+                                    <span class="summary-value total-hours" id="summary-total">40 hours</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeShiftModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-primary" id="std-submit-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22,4 12,14.01 9,11.01"></polyline>
+                        </svg>
+                        Create Standard Shift
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Dynamic Shift Form -->
+            <form id="dynamicShiftForm" class="shift-form" method="post" action="/attendance/shift-manager/dynamic" style="display: none;">
+                <input type="hidden" id="dyn-shift-id" name="shift_id" value="">
+                
+                <div class="form-section">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Basic Information
+                    </h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="dyn-name">
+                                Shift Name
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" id="dyn-name" name="name" required placeholder="e.g., Flexible Schedule" maxlength="100">
+                            <div class="input-hint">Choose a descriptive name for this shift</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="dyn-description">Description</label>
+                            <input type="text" id="dyn-description" name="description" placeholder="e.g., Custom weekly schedule" maxlength="200">
+                            <div class="input-hint">Optional additional details</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        Weekly Schedule
+                        <span class="required">*</span>
+                    </h3>
+                    <div class="days-schedule">
+                        {% set days_data = [
+                            ('monday', 'Monday', 'Mon'), ('tuesday', 'Tuesday', 'Tue'), 
+                            ('wednesday', 'Wednesday', 'Wed'), ('thursday', 'Thursday', 'Thu'),
+                            ('friday', 'Friday', 'Fri'), ('saturday', 'Saturday', 'Sat'), 
+                            ('sunday', 'Sunday', 'Sun')
+                        ] %}
+                        {% for day_key, day_name, day_short in days_data %}
+                        <div class="day-schedule" id="{{ day_key }}-schedule">
+                            <div class="day-header">
+                                <div class="day-info">
+                                    <span class="day-name">{{ day_name }}</span>
+                                    <span class="day-short">{{ day_short }}</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" checked onchange="toggleDaySchedule('{{ day_key }}')">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="day-times" id="{{ day_key }}-times">
+                                <div class="time-inputs">
+                                    <div class="time-group">
+                                        <label>Start</label>
+                                        <input type="time" name="{{ day_key }}_start" value="09:00">
+                                    </div>
+                                    <div class="time-separator">to</div>
+                                    <div class="time-group">
+                                        <label>End</label>
+                                        <input type="time" name="{{ day_key }}_end" value="17:00">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 1v6m0 6v6"></path>
+                            <path d="m15.14 4.14 4.24 4.24m-8.48 8.48-4.24-4.24"></path>
+                            <path d="m4.14 15.14 4.24-4.24m8.48-8.48 4.24 4.24"></path>
+                        </svg>
+                        Shift Settings
+                    </h3>
+                    <div class="settings-container">
+                        <div class="setting-item">
+                            <label class="checkbox-container">
+                                <input type="checkbox" name="is_active" value="true" checked>
+                                <span class="checkmark"></span>
+                                <div class="checkbox-content">
+                                    <span class="checkbox-text">Activate shift immediately</span>
+                                    <span class="checkbox-hint">The shift will be available for employee assignment</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeShiftModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-primary" id="dyn-submit-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22,4 12,14.01 9,11.01"></polyline>
+                        </svg>
+                        Create Dynamic Shift
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-backdrop" onclick="closeDeleteModal()"></div>
+    <div class="modal-container small">
+        <div class="modal-header">
+            <h2>Confirm Deletion</h2>
+            <button class="modal-close" onclick="closeDeleteModal()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="delete-content">
+                <div class="delete-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <h3>Delete Shift?</h3>
+                <p id="delete-message">Are you sure you want to delete this shift? This action cannot be undone.</p>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button type="button" class="btn-danger" onclick="confirmDelete()">Delete Shift</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Production-Ready CSS -->
+<style>
+:root {
+    --primary-50: #fdf2f8;
+    --primary-100: #fce7f3;
+    --primary-200: #fbcfe8;
+    --primary-300: #f9a8d4;
+    --primary-400: #f472b6;
+    --primary-500: #8b1538;
+    --primary-600: #7c1d33;
+    --primary-700: #6d1f2c;
+    --primary-800: #5e1a23;
+    --primary-900: #4f141a;
+    
+    --success-50: #f0fdf4;
+    --success-100: #dcfce7;
+    --success-200: #bbf7d0;
+    --success-300: #86efac;
+    --success-400: #4ade80;
+    --success-500: #22c55e;
+    --success-600: #16a34a;
+    --success-700: #15803d;
+    --success-800: #166534;
+    --success-900: #14532d;
+    
+    --danger-50: #fef2f2;
+    --danger-100: #fee2e2;
+    --danger-200: #fecaca;
+    --danger-300: #fca5a5;
+    --danger-400: #f87171;
+    --danger-500: #ef4444;
+    --danger-600: #dc2626;
+    --danger-700: #b91c1c;
+    --danger-800: #991b1b;
+    --danger-900: #7f1d1d;
+    
+    --warning-50: #fffbeb;
+    --warning-100: #fef3c7;
+    --warning-200: #fde68a;
+    --warning-300: #fcd34d;
+    --warning-400: #fbbf24;
+    --warning-500: #f59e0b;
+    --warning-600: #d97706;
+    --warning-700: #b45309;
+    --warning-800: #92400e;
+    --warning-900: #78350f;
+    
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    
+    --radius: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    
+    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+.shift-manager-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    background-color: var(--gray-50);
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+}
+
+/* Page Header */
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+}
+
+.header-info h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -0.025em;
+}
+
+.header-info p {
+    color: var(--gray-600);
+    font-size: 1.125rem;
+    margin: 0;
+}
+
+.btn-create-shift {
+    background: var(--primary-600);
+    color: white;
+    border: none;
+    padding: 0.875rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow);
+    text-decoration: none;
+}
+
+.btn-create-shift:hover {
+    background: var(--primary-700);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-create-shift:active {
+    transform: translateY(0);
+}
+
+/* Statistics Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--gray-200);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: var(--transition);
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.stat-icon {
+    width: 3rem;
+    height: 3rem;
+    background: var(--primary-50);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-600);
+    flex-shrink: 0;
+}
+
+.stat-icon.active {
+    background: var(--success-50);
+    color: var(--success-600);
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    line-height: 1;
+}
+
+.stat-label {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Table Container */
+.table-container {
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--gray-200);
+    overflow: hidden;
+}
+
+.table-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.table-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin: 0;
+}
+
+.table-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-container svg {
+    position: absolute;
+    left: 0.75rem;
+    color: var(--gray-400);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.search-container input {
+    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    width: 250px;
+    transition: var(--transition);
+    background: white;
+}
+
+.search-container input:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px var(--primary-50);
+}
+
+/* Table Styles */
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.shifts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.shifts-table th {
+    background: var(--gray-50);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--gray-200);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.shifts-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+}
+
+.shift-row {
+    transition: var(--transition);
+}
+
+.shift-row:hover {
+    background: var(--gray-50);
+}
+
+.shift-row.inactive {
+    opacity: 0.6;
+}
+
+.shift-type-col { width: 120px; }
+.shift-name-col { width: 200px; }
+.day-col { width: 100px; text-align: center; }
+.actions-col { width: 120px; }
+
+/* Type Badge */
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.type-badge.standard {
+    background: var(--primary-50);
+    color: var(--primary-600);
+}
+
+.type-badge.dynamic {
+    background: var(--success-50);
+    color: var(--success-600);
+}
+
+/* Shift Name */
+.name-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.name {
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.description {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.shift-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-indicator.active {
+    background: var(--success-500);
+}
+
+.status-indicator.inactive {
+    background: var(--gray-300);
+}
+
+.employee-count {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+/* Day Time */
+.time-slot {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+    font-weight: 500;
+    color: var(--gray-900);
+    background: var(--gray-50);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.no-work {
+    color: var(--gray-400);
+    font-weight: 500;
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.btn-action {
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    position: relative;
+}
+
+.btn-action.edit {
+    background: var(--primary-50);
+    color: var(--primary-600);
+}
+
+.btn-action.edit:hover {
+    background: var(--primary-100);
+    transform: scale(1.05);
+}
+
+.btn-action.toggle {
+    background: var(--warning-50);
+    color: var(--warning-600);
+}
+
+.btn-action.toggle:hover {
+    background: var(--warning-100);
+    transform: scale(1.05);
+}
+
+.btn-action.delete {
+    background: var(--danger-50);
+    color: var(--danger-600);
+}
+
+.btn-action.delete:hover {
+    background: var(--danger-100);
+    transform: scale(1.05);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--gray-200);
+}
+
+.empty-icon {
+    margin-bottom: 1.5rem;
+    color: var(--gray-300);
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin: 0 0 0.5rem 0;
+}
+
+.empty-state p {
+    color: var(--gray-600);
+    margin: 0 0 2rem 0;
+    font-size: 1.1rem;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    overflow-y: auto;
+    padding: 1rem;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal.show {
+    display: block;
+}
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-container {
+    position: relative;
+    background: white;
+    margin: 2rem auto;
+    max-width: 800px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    animation: slideInDown 0.3s ease-out;
+}
+
+.modal-container.small {
+    max-width: 500px;
+}
+
+.modal-header {
+    padding: 2rem 2rem 1rem 2rem;
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+}
+
+.modal-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--radius);
+    color: var(--gray-400);
+    transition: var(--transition);
+}
+
+.modal-close:hover {
+    background: var(--gray-100);
+    color: var(--gray-600);
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+/* Shift Type Selection */
+.shift-type-selection {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.type-option {
+    padding: 1.5rem;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.type-option:hover {
+    border-color: var(--primary-300);
+    background: var(--primary-50);
+    transform: translateY(-2px);
+}
+
+.type-option.selected {
+    border-color: var(--primary-500);
+    background: var(--primary-50);
+    transform: translateY(-2px);
+}
+
+.type-icon {
+    width: 3rem;
+    height: 3rem;
+    background: var(--gray-100);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gray-600);
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.type-option:hover .type-icon,
+.type-option.selected .type-icon {
+    background: var(--primary-100);
+    color: var(--primary-600);
+}
+
+.type-content h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin: 0 0 0.25rem 0;
+}
+
+.type-content p {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* Form Styles */
+.shift-form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.form-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin: 0 0 1.5rem 0;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--gray-100);
+}
+
+.form-section h3 svg {
+    color: var(--primary-600);
+    flex-shrink: 0;
+}
+
+.required {
+    color: var(--danger-500);
+    font-weight: 700;
+    margin-left: 0.25rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: var(--gray-800);
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.form-group input,
+.form-group select {
+    padding: 0.875rem;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    transition: var(--transition);
+    background: white;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 4px var(--primary-50);
+    transform: translateY(-1px);
+}
+
+.form-group input:valid:not(:placeholder-shown) {
+    border-color: var(--success-400);
+}
+
+.input-hint {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+/* Schedule Items */
+.schedule-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.schedule-item {
+    padding: 1.75rem;
+    background: linear-gradient(145deg, var(--gray-50), white);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--gray-100);
+    transition: var(--transition);
+}
+
+.schedule-item:hover {
+    border-color: var(--primary-200);
+    box-shadow: var(--shadow-md);
+}
+
+.weekday-schedule {
+    border-left: 4px solid var(--primary-500);
+}
+
+.weekend-schedule {
+    border-left: 4px solid var(--warning-500);
+}
+
+.schedule-header {
+    margin-bottom: 1.5rem;
+}
+
+.schedule-label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.day-indicator {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.day-indicator.weekday {
+    background: var(--primary-100);
+    color: var(--primary-800);
+}
+
+.day-indicator.weekend {
+    background: var(--warning-100);
+    color: var(--warning-800);
+}
+
+.day-indicator span {
+    padding: 0.125rem 0.25rem;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.schedule-title {
+    font-weight: 600;
+    color: var(--gray-800);
+    font-size: 1rem;
+}
+
+.time-inputs-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.time-inputs {
+    display: flex;
+    align-items: end;
+    gap: 1rem;
+}
+
+.time-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.time-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.time-group input {
+    padding: 0.875rem;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    transition: var(--transition);
+}
+
+.time-group input:focus {
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 4px var(--primary-50);
+}
+
+.time-separator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    color: var(--gray-400);
+    padding: 0.5rem;
+    font-weight: 500;
+}
+
+.schedule-duration {
+    align-self: flex-end;
+    padding: 0.5rem 1rem;
+    background: var(--success-50);
+    color: var(--success-700);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid var(--success-200);
+    white-space: nowrap;
+}
+
+/* Weekend Configuration */
+.weekend-config {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.weekend-config select {
+    padding: 0.875rem;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    background: white;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.weekend-config select:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 4px var(--primary-50);
+}
+
+/* Off Day Notice */
+.off-day-notice {
+    padding: 1rem 1.25rem;
+    background: var(--success-50);
+    border: 1px solid var(--success-200);
+    border-radius: var(--radius-md);
+    margin-top: 1rem;
+}
+
+.notice-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--success-700);
+    font-weight: 500;
+}
+
+.notice-content svg {
+    color: var(--success-600);
+    flex-shrink: 0;
+}
+
+/* Settings */
+.settings-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.setting-item {
+    padding: 1rem 1.25rem;
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    cursor: pointer;
+}
+
+.checkbox-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.checkbox-text {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.checkbox-hint {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.checkmark {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--gray-300);
+    border-radius: 6px;
+    position: relative;
+    transition: var(--transition);
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+}
+
+.checkbox-container input[type="checkbox"] {
+    display: none;
+}
+
+.checkbox-container input[type="checkbox"]:checked + .checkmark {
+    background: var(--primary-500);
+    border-color: var(--primary-500);
+    transform: scale(1.05);
+}
+
+.checkbox-container input[type="checkbox"]:checked + .checkmark::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Shift Summary */
+.shift-summary {
+    padding: 1.5rem;
+    background: linear-gradient(145deg, var(--primary-50), white);
+    border: 2px solid var(--primary-100);
+    border-radius: var(--radius-lg);
+}
+
+.shift-summary h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-800);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.shift-summary h4::before {
+    content: '📋';
+    font-size: 1.1rem;
+}
+
+.summary-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--primary-100);
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 2px solid var(--primary-200);
+}
+
+.summary-label {
+    font-weight: 500;
+    color: var(--primary-700);
+}
+
+.summary-value {
+    font-weight: 600;
+    color: var(--primary-800);
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 0.875rem;
+}
+
+.total-hours {
+    font-size: 1rem;
+    color: var(--primary-900);
+}
+
+/* Days Schedule */
+.days-schedule {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.day-schedule {
+    padding: 1rem;
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    transition: var(--transition);
+}
+
+.day-schedule:hover {
+    background: white;
+    box-shadow: var(--shadow);
+}
+
+.day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.day-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.day-name {
+    font-weight: 500;
+    color: var(--gray-900);
+}
+
+.day-short {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.day-times {
+    transition: var(--transition);
+}
+
+.day-times.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--gray-300);
+    transition: var(--transition);
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: var(--transition);
+    border-radius: 50%;
+    box-shadow: var(--shadow-sm);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: var(--primary-500);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding-top: 2rem;
+    border-top: 2px solid var(--gray-100);
+    margin-top: 1rem;
+}
+
+.btn-primary, .btn-secondary, .btn-danger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 2px solid transparent;
+    text-decoration: none;
+    font-family: inherit;
+}
+
+.btn-primary {
+    background: var(--primary-600);
+    color: white;
+    border-color: var(--primary-600);
+}
+
+.btn-primary:hover {
+    background: var(--primary-700);
+    border-color: var(--primary-700);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-secondary {
+    background: white;
+    color: var(--gray-700);
+    border-color: var(--gray-300);
+}
+
+.btn-secondary:hover {
+    background: var(--gray-50);
+    border-color: var(--gray-400);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+}
+
+.btn-danger {
+    background: var(--danger-600);
+    color: white;
+    border-color: var(--danger-600);
+}
+
+.btn-danger:hover {
+    background: var(--danger-700);
+    border-color: var(--danger-700);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Delete Modal */
+.delete-content {
+    text-align: center;
+    padding: 1rem 0 2rem 0;
+}
+
+.delete-icon {
+    margin-bottom: 1rem;
+    color: var(--danger-500);
+}
+
+.delete-content h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--gray-900);
+    font-size: 1.25rem;
+}
+
+.delete-content p {
+    color: var(--gray-600);
+    margin: 0;
+}
+
+/* Form Alerts */
+.form-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+    animation: slideInDown 0.3s ease;
+}
+
+.form-alert.error {
+    background: var(--danger-50);
+    color: var(--danger-700);
+    border: 2px solid var(--danger-200);
+}
+
+.form-alert.success {
+    background: var(--success-50);
+    color: var(--success-700);
+    border: 2px solid var(--success-200);
+}
+
+.form-alert svg {
+    flex-shrink: 0;
+}
+
+/* Notifications */
+.notification {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    box-shadow: var(--shadow-xl);
+    animation: slideInRight 0.3s ease;
+    min-width: 300px;
+    max-width: 500px;
+}
+
+.notification.success {
+    background: var(--success-50);
+    color: var(--success-700);
+    border: 2px solid var(--success-200);
+}
+
+.notification.error {
+    background: var(--danger-50);
+    color: var(--danger-700);
+    border: 2px solid var(--danger-200);
+}
+
+.notification.info {
+    background: var(--primary-50);
+    color: var(--primary-700);
+    border: 2px solid var(--primary-200);
+}
+
+.notification svg {
+    flex-shrink: 0;
+}
+
+.notification button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: var(--radius);
+    margin-left: auto;
+    opacity: 0.7;
+    transition: var(--transition);
+}
+
+.notification button:hover {
+    opacity: 1;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 1002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-content {
+    background: white;
+    padding: 2rem;
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: var(--shadow-xl);
+}
+
+.spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--gray-200);
+    border-top: 3px solid var(--primary-600);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .shift-manager-container {
+        padding: 1rem;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+    
+    .table-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .search-container input {
+        width: 100%;
+    }
+    
+    .day-col:nth-child(n+8) {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .shift-type-selection {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .time-inputs {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .time-separator {
+        align-self: center;
+        margin: 0;
+        transform: rotate(90deg);
+    }
+    
+    .schedule-label {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .summary-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .modal-container {
+        margin: 1rem;
+        max-width: none;
+    }
+    
+    .modal-header,
+    .modal-body {
+        padding: 1.5rem;
+    }
+    
+    .table-wrapper {
+        font-size: 0.75rem;
+    }
+    
+    .shifts-table th,
+    .shifts-table td {
+        padding: 0.5rem;
+    }
+    
+    .day-col:nth-child(n+6) {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .day-col:nth-child(n+5) {
+        display: none;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 0.125rem;
+    }
+    
+    .btn-action {
+        width: 1.75rem;
+        height: 1.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .notification {
+        top: 1rem;
+        right: 1rem;
+        left: 1rem;
+        min-width: auto;
+    }
+    
+    .loading-content {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+    
+    .shift-manager-container {
+        padding: 0.5rem;
+    }
+    
+    .page-header {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Focus and accessibility */
+.btn-create-shift:focus,
+.btn-action:focus,
+.btn-primary:focus,
+.btn-secondary:focus,
+.btn-danger:focus {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 4px var(--primary-50);
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    :root {
+        --gray-50: #ffffff;
+        --gray-100: #f0f0f0;
+        --gray-200: #e0e0e0;
+        --gray-300: #c0c0c0;
+        --gray-400: #808080;
+        --gray-500: #606060;
+        --gray-600: #404040;
+        --gray-700: #303030;
+        --gray-800: #202020;
+        --gray-900: #000000;
+    }
+    
+    .btn-action,
+    .type-badge,
+    .time-slot {
+        border: 2px solid currentColor;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .modal.show {
+        animation: none;
+    }
+    
+    .notification {
+        animation: none;
+    }
+}
+
+/* Print styles */
+@media print {
+    .page-header,
+    .stats-grid,
+    .search-container,
+    .action-buttons,
+    .modal {
+        display: none !important;
+    }
+    
+    .shift-manager-container {
+        padding: 0;
+        background: white;
+    }
+    
+    .table-container {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+    
+    .shifts-table th,
+    .shifts-table td {
+        border: 1px solid #000;
+        padding: 0.5rem;
+    }
+}
+</style>
+
+<script>
+// =============================================================================
+// PRODUCTION-READY SHIFT MANAGER JAVASCRIPT
+// Complete shift management system with proper weekend handling
+// =============================================================================
+
+'use strict';
+
+// Global state management
+const ShiftManager = {
+    state: {
+        currentShiftType: null,
+        editingShiftId: null,
+        deleteShiftId: null,
+        isLoading: false
+    },
+    
+    config: {
+        animationDuration: 300,
+        autoSaveDelay: 1000,
+        notificationDuration: 5000
+    }
+};
+
+// =============================================================================
+// UTILITY FUNCTIONS
+// =============================================================================
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function sanitizeInput(input) {
+    if (typeof input !== 'string') return '';
+    return input.trim().replace(/[<>&"']/g, function(char) {
+        return {
+            '<': '&lt;',
+            '>': '&gt;',
+            '&': '&amp;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char];
+    });
+}
+
+function isValidTimeFormat(time) {
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    return timeRegex.test(time);
+}
+
+function calculateHours(startTime, endTime) {
+    if (!startTime || !endTime || !isValidTimeFormat(startTime) || !isValidTimeFormat(endTime)) {
+        return 0;
+    }
+    
+    try {
+        const start = new Date(`2000-01-01T${startTime}:00`);
+        const end = new Date(`2000-01-01T${endTime}:00`);
+        
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return 0;
+        }
+        
+        // Handle overnight shifts
+        if (end <= start) {
+            end.setDate(end.getDate() + 1);
+        }
+        
+        const hours = (end - start) / (1000 * 60 * 60);
+        return Math.round(hours * 100) / 100;
+    } catch (error) {
+        console.error('Error calculating hours:', error);
+        return 0;
+    }
+}
+
+// =============================================================================
+// MODAL MANAGEMENT
+// =============================================================================
+
+function openShiftModal() {
+    const modal = document.getElementById('shiftModal');
+    if (!modal) return;
+    
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    
+    // Only reset if not editing
+    if (!ShiftManager.state.editingShiftId) {
+        resetModal();
+    }
+    
+    // Focus management for accessibility
+    setTimeout(() => {
+        const firstInput = modal.querySelector('input[type="text"]');
+        if (firstInput) firstInput.focus();
+    }, ShiftManager.config.animationDuration);
+}
+
+function closeShiftModal() {
+    const modal = document.getElementById('shiftModal');
+    if (!modal) return;
+    
+    modal.classList.remove('show');
+    document.body.style.overflow = '';
+    
+    // Always reset when closing
+    setTimeout(() => resetModal(), ShiftManager.config.animationDuration);
+}
+
+function openDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    if (!modal) return;
+    
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    if (!modal) return;
+    
+    modal.classList.remove('show');
+    document.body.style.overflow = '';
+    ShiftManager.state.deleteShiftId = null;
+}
+
+function resetModal() {
+    // Reset state
+    ShiftManager.state.editingShiftId = null;
+    ShiftManager.state.currentShiftType = null;
+    
+    // Reset UI elements
+    const elements = {
+        title: document.getElementById('modal-title'),
+        typeSelection: document.getElementById('shift-type-selection'),
+        standardForm: document.getElementById('standardShiftForm'),
+        dynamicForm: document.getElementById('dynamicShiftForm'),
+        stdSubmitBtn: document.getElementById('std-submit-btn'),
+        dynSubmitBtn: document.getElementById('dyn-submit-btn')
+    };
+    
+    // Update title and visibility
+    if (elements.title) elements.title.textContent = 'Create New Shift';
+    if (elements.typeSelection) elements.typeSelection.style.display = 'grid';
+    if (elements.standardForm) elements.standardForm.style.display = 'none';
+    if (elements.dynamicForm) elements.dynamicForm.style.display = 'none';
+    
+    // Reset forms
+    resetStandardForm();
+    resetDynamicForm();
+    
+    // Reset type selection
+    document.querySelectorAll('.type-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Remove form alerts
+    removeFormAlerts();
+}
+
+function resetStandardForm() {
+    const form = document.getElementById('standardShiftForm');
+    const submitBtn = document.getElementById('std-submit-btn');
+    
+    if (!form || !submitBtn) return;
+    
+    // Reset form and action
+    form.reset();
+    form.action = '/attendance/shift-manager/standard';
+    
+    // Reset hidden fields
+    const hiddenId = document.getElementById('std-shift-id');
+    if (hiddenId) hiddenId.value = '';
+    
+    // Reset submit button
+    submitBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22,4 12,14.01 9,11.01"></polyline>
+        </svg>
+        Create Standard Shift
+    `;
+    
+    // Set default values
+    const weekdayStart = form.querySelector('[name="weekday_start"]');
+    const weekdayEnd = form.querySelector('[name="weekday_end"]');
+    const weekendPolicy = document.getElementById('std-weekend-policy');
+    const isActive = form.querySelector('[name="is_active"]');
+    
+    if (weekdayStart) weekdayStart.value = '09:00';
+    if (weekdayEnd) weekdayEnd.value = '17:00';
+    if (weekendPolicy) weekendPolicy.value = 'none';
+    if (isActive) isActive.checked = true;
+    
+    // Update weekend configuration and summary
+    handleWeekendPolicyChange();
+    updateShiftSummary();
+}
+
+function resetDynamicForm() {
+    const form = document.getElementById('dynamicShiftForm');
+    const submitBtn = document.getElementById('dyn-submit-btn');
+    
+    if (!form || !submitBtn) return;
+    
+    // Reset form and action
+    form.reset();
+    form.action = '/attendance/shift-manager/dynamic';
+    
+    // Reset hidden fields
+    const hiddenId = document.getElementById('dyn-shift-id');
+    if (hiddenId) hiddenId.value = '';
+    
+    // Reset submit button
+    submitBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22,4 12,14.01 9,11.01"></polyline>
+        </svg>
+        Create Dynamic Shift
+    `;
+    
+    // Reset dynamic form toggles and times
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    days.forEach(day => {
+        const toggle = document.querySelector(`[onchange="toggleDaySchedule('${day}')"]`);
+        const timesContainer = document.getElementById(`${day}-times`);
+        const startInput = document.querySelector(`[name="${day}_start"]`);
+        const endInput = document.querySelector(`[name="${day}_end"]`);
+        
+        if (toggle && timesContainer && startInput && endInput) {
+            toggle.checked = true;
+            timesContainer.classList.remove('disabled');
+            startInput.value = '09:00';
+            endInput.value = '17:00';
+            startInput.removeAttribute('disabled');
+            endInput.removeAttribute('disabled');
+        }
+    });
+    
+    // Set active checkbox
+    const isActive = form.querySelector('[name="is_active"]');
+    if (isActive) isActive.checked = true;
+}
+
+function removeFormAlerts() {
+    document.querySelectorAll('.form-alert').forEach(alert => alert.remove());
+}
+
+// =============================================================================
+// SHIFT TYPE SELECTION
+// =============================================================================
+
+function selectShiftType(type) {
+    ShiftManager.state.currentShiftType = type;
+    
+    // Update UI selection
+    document.querySelectorAll('.type-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    const selectedOption = document.querySelector(`[data-type="${type}"]`);
+    if (selectedOption) {
+        selectedOption.classList.add('selected');
+    }
+    
+    // Hide type selection and show appropriate form
+    setTimeout(() => {
+        const typeSelection = document.getElementById('shift-type-selection');
+        const standardForm = document.getElementById('standardShiftForm');
+        const dynamicForm = document.getElementById('dynamicShiftForm');
+        
+        if (typeSelection) typeSelection.style.display = 'none';
+        
+        if (type === 'standard' && standardForm) {
+            standardForm.style.display = 'block';
+            updateShiftSummary();
+        } else if (type === 'dynamic' && dynamicForm) {
+            dynamicForm.style.display = 'block';
+        }
+        
+        // Focus first input
+        const firstInput = (type === 'standard' ? standardForm : dynamicForm)?.querySelector('input[type="text"]');
+        if (firstInput) firstInput.focus();
+        
+    }, ShiftManager.config.animationDuration);
+}
+
+function toggleDaySchedule(day) {
+    const checkbox = event.target;
+    const timesContainer = document.getElementById(`${day}-times`);
+    const startInput = document.querySelector(`[name="${day}_start"]`);
+    const endInput = document.querySelector(`[name="${day}_end"]`);
+    
+    if (!timesContainer || !startInput || !endInput) return;
+    
+    if (checkbox.checked) {
+        timesContainer.classList.remove('disabled');
+        startInput.value = startInput.value || '09:00';
+        endInput.value = endInput.value || '17:00';
+        startInput.removeAttribute('disabled');
+        endInput.removeAttribute('disabled');
+    } else {
+        timesContainer.classList.add('disabled');
+        startInput.value = '';
+        endInput.value = '';
+        startInput.setAttribute('disabled', 'disabled');
+        endInput.setAttribute('disabled', 'disabled');
+    }
+}
+
+// =============================================================================
+// WEEKEND POLICY HANDLING - FIXED IMPLEMENTATION
+// =============================================================================
+
+function handleWeekendPolicyChange() {
+    const policySelect = document.getElementById('std-weekend-policy');
+    if (!policySelect) return;
+    
+    const policy = policySelect.value;
+    
+    // Get all weekend sections
+    const saturdaySection = document.getElementById('saturday-schedule-section');
+    const sundaySection = document.getElementById('sunday-schedule-section');
+    const bothSection = document.getElementById('both-weekend-schedule-section');
+    const offNotice = document.getElementById('weekend-off-notice');
+    
+    // Get all time inputs
+    const saturdayStartInput = document.getElementById('saturday_start');
+    const saturdayEndInput = document.getElementById('saturday_end');
+    const sundayStartInput = document.getElementById('sunday_start');
+    const sundayEndInput = document.getElementById('sunday_end');
+    const bothStartInput = document.getElementById('both-weekend-start');
+    const bothEndInput = document.getElementById('both-weekend-end');
+    
+    // Hide all sections first
+    if (saturdaySection) saturdaySection.style.display = 'none';
+    if (sundaySection) sundaySection.style.display = 'none';
+    if (bothSection) bothSection.style.display = 'none';
+    if (offNotice) offNotice.style.display = 'none';
+    
+    // Clear all required attributes and values
+    [saturdayStartInput, saturdayEndInput, sundayStartInput, sundayEndInput].forEach(input => {
+        if (input) {
+            input.removeAttribute('required');
+            input.value = '';
+        }
+    });
+    
+    // Handle different policies
+    switch(policy) {
+        case 'both':
+            // Both days work - show combined section
+            if (bothSection) bothSection.style.display = 'block';
+            
+            // Set default values and requirements for both weekend inputs
+            if (bothStartInput) {
+                bothStartInput.value = bothStartInput.value || '09:00';
+                bothStartInput.setAttribute('required', 'required');
+            }
+            if (bothEndInput) {
+                bothEndInput.value = bothEndInput.value || '17:00';
+                bothEndInput.setAttribute('required', 'required');
+            }
+            
+            // Sync times to hidden Saturday/Sunday inputs
+            syncBothWeekendTimes();
+            break;
+            
+        case 'saturday_only':
+            // Only Saturday work
+            if (saturdaySection) saturdaySection.style.display = 'block';
+            
+            if (saturdayStartInput) {
+                saturdayStartInput.value = saturdayStartInput.value || '09:00';
+                saturdayStartInput.setAttribute('required', 'required');
+            }
+            if (saturdayEndInput) {
+                saturdayEndInput.value = saturdayEndInput.value || '17:00';
+                saturdayEndInput.setAttribute('required', 'required');
+            }
+            break;
+            
+        case 'sunday_only':
+            // Only Sunday work
+            if (sundaySection) sundaySection.style.display = 'block';
+            
+            if (sundayStartInput) {
+                sundayStartInput.value = sundayStartInput.value || '09:00';
+                sundayStartInput.setAttribute('required', 'required');
+            }
+            if (sundayEndInput) {
+                sundayEndInput.value = sundayEndInput.value || '17:00';
+                sundayEndInput.setAttribute('required', 'required');
+            }
+            break;
+            
+        case 'none':
+        default:
+            // Both days off
+            if (offNotice) offNotice.style.display = 'block';
+            // All inputs remain empty and not required
+            break;
+    }
+    
+    // Update duration calculations
+    updateWeekendDurations();
+    
+    // Update shift summary
+    updateShiftSummary();
+}
+
+function syncBothWeekendTimes() {
+    // When "both" is selected, sync the visible inputs to the hidden Saturday/Sunday inputs
+    const bothStartInput = document.getElementById('both-weekend-start');
+    const bothEndInput = document.getElementById('both-weekend-end');
+    const saturdayStartInput = document.getElementById('saturday_start');
+    const saturdayEndInput = document.getElementById('saturday_end');
+    const sundayStartInput = document.getElementById('sunday_start');
+    const sundayEndInput = document.getElementById('sunday_end');
+    
+    if (bothStartInput && bothEndInput && saturdayStartInput && saturdayEndInput && sundayStartInput && sundayEndInput) {
+        const startTime = bothStartInput.value;
+        const endTime = bothEndInput.value;
+        
+        // Set the same times for both Saturday and Sunday
+        saturdayStartInput.value = startTime;
+        saturdayEndInput.value = endTime;
+        sundayStartInput.value = startTime;
+        sundayEndInput.value = endTime;
+        
+        // Set required attributes
+        if (startTime && endTime) {
+            saturdayStartInput.setAttribute('required', 'required');
+            saturdayEndInput.setAttribute('required', 'required');
+            sundayStartInput.setAttribute('required', 'required');
+            sundayEndInput.setAttribute('required', 'required');
+        }
+    }
+}
+
+function updateWeekendDurations() {
+    // Update individual day durations
+    updateDuration('saturday_start', 'saturday_end', 'saturday-duration');
+    updateDuration('sunday_start', 'sunday_end', 'sunday-duration');
+    updateDuration('both-weekend-start', 'both-weekend-end', 'both-weekend-duration');
+}
+
+function updateDuration(startId, endId, durationId) {
+    const startInput = document.getElementById(startId);
+    const endInput = document.getElementById(endId);
+    const durationDiv = document.getElementById(durationId);
+    
+    if (startInput && endInput && durationDiv && startInput.value && endInput.value) {
+        const hours = calculateHours(startInput.value, endInput.value);
+        
+        if (hours > 0) {
+            const wholeHours = Math.floor(hours);
+            const minutes = Math.round((hours - wholeHours) * 60);
+            
+            if (minutes === 0) {
+                durationDiv.textContent = `${wholeHours} hours`;
+            } else {
+                durationDiv.textContent = `${wholeHours}h ${minutes}m`;
+            }
+            durationDiv.style.color = '';
+        } else {
+            durationDiv.textContent = 'Invalid time range';
+            durationDiv.style.color = 'var(--danger-500)';
+        }
+    } else if (durationDiv) {
+        durationDiv.textContent = '';
+    }
+}
+
+// =============================================================================
+// SHIFT SUMMARY CALCULATION
+// =============================================================================
+
+function updateShiftSummary() {
+    // Get elements with null checks
+    const elements = {
+        weekdayStart: document.getElementById('weekday_start'),
+        weekdayEnd: document.getElementById('weekday_end'),
+        policy: document.getElementById('std-weekend-policy'),
+        saturdayStart: document.getElementById('saturday_start'),
+        saturdayEnd: document.getElementById('saturday_end'),
+        sundayStart: document.getElementById('sunday_start'),
+        sundayEnd: document.getElementById('sunday_end'),
+        bothWeekendStart: document.getElementById('both-weekend-start'),
+        bothWeekendEnd: document.getElementById('both-weekend-end'),
+        weekdayDuration: document.getElementById('weekday-duration'),
+        summaryWeekdays: document.getElementById('summary-weekdays'),
+        summaryWeekend: document.getElementById('summary-weekend'),
+        summaryTotal: document.getElementById('summary-total')
+    };
+    
+    // Get values safely
+    const values = {
+        weekdayStart: elements.weekdayStart?.value || '',
+        weekdayEnd: elements.weekdayEnd?.value || '',
+        policy: elements.policy?.value || 'none'
+    };
+    
+    // Calculate weekday hours
+    const weekdayHours = calculateHours(values.weekdayStart, values.weekdayEnd);
+    
+    // Update weekday display
+    if (elements.weekdayDuration) {
+        if (weekdayHours > 0) {
+            const wholeHours = Math.floor(weekdayHours);
+            const minutes = Math.round((weekdayHours - wholeHours) * 60);
+            elements.weekdayDuration.textContent = minutes === 0 ? 
+                `${wholeHours} hours` : `${wholeHours}h ${minutes}m`;
+        } else {
+            elements.weekdayDuration.textContent = '';
+        }
+    }
+    
+    if (elements.summaryWeekdays) {
+        elements.summaryWeekdays.textContent = values.weekdayStart && values.weekdayEnd
+            ? `${values.weekdayStart} - ${values.weekdayEnd} (${weekdayHours} hours)`
+            : 'Not configured';
+    }
+    
+    // Calculate weekend hours and summary
+    let weekendHours = 0;
+    let weekendSummary = '';
+    
+    switch(values.policy) {
+        case 'none':
+            weekendSummary = 'Both days off';
+            break;
+            
+        case 'both':
+            const bothStart = elements.bothWeekendStart?.value;
+            const bothEnd = elements.bothWeekendEnd?.value;
+            if (bothStart && bothEnd) {
+                const singleDayHours = calculateHours(bothStart, bothEnd);
+                weekendHours = singleDayHours * 2; // Both days
+                weekendSummary = `${bothStart} - ${bothEnd} (${weekendHours} hours total)`;
+            } else {
+                weekendSummary = 'Weekend times not configured';
+            }
+            break;
+            
+        case 'saturday_only':
+            const satStart = elements.saturdayStart?.value;
+            const satEnd = elements.saturdayEnd?.value;
+            if (satStart && satEnd) {
+                weekendHours = calculateHours(satStart, satEnd);
+                weekendSummary = `Saturday: ${satStart} - ${satEnd} (${weekendHours} hours)`;
+            } else {
+                weekendSummary = 'Saturday times not configured';
+            }
+            break;
+            
+        case 'sunday_only':
+            const sunStart = elements.sundayStart?.value;
+            const sunEnd = elements.sundayEnd?.value;
+            if (sunStart && sunEnd) {
+                weekendHours = calculateHours(sunStart, sunEnd);
+                weekendSummary = `Sunday: ${sunStart} - ${sunEnd} (${weekendHours} hours)`;
+            } else {
+                weekendSummary = 'Sunday times not configured';
+            }
+            break;
+            
+        default:
+            weekendSummary = 'Weekend policy not selected';
+    }
+    
+    // Update weekend display
+    if (elements.summaryWeekend) {
+        elements.summaryWeekend.textContent = weekendSummary;
+    }
+    
+    // Calculate and update total hours
+    const totalHours = (weekdayHours * 5) + weekendHours;
+    if (elements.summaryTotal) {
+        elements.summaryTotal.textContent = `${totalHours} hours`;
+    }
+}
+
+// =============================================================================
+// TABLE MANAGEMENT
+// =============================================================================
+
+const debouncedFilterTable = debounce(function() {
+    const input = document.getElementById('searchInput');
+    const table = document.getElementById('shiftsTable');
+    
+    if (!input || !table) return;
+    
+    const filter = sanitizeInput(input.value).toUpperCase();
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.getElementsByTagName('td');
+        let found = false;
+        
+        // Search in shift name and type (first two columns)
+        for (let j = 0; j < Math.min(2, cells.length); j++) {
+            if (cells[j] && cells[j].textContent.toUpperCase().indexOf(filter) > -1) {
+                found = true;
+                break;
+            }
+        }
+        
+        row.style.display = found ? '' : 'none';
+    }
+}, 300);
+
+function filterTable() {
+    debouncedFilterTable();
+}
+
+// =============================================================================
+// SHIFT MANAGEMENT OPERATIONS
+// =============================================================================
+
+async function editShift(id) {
+    if (ShiftManager.state.isLoading) return;
+    
+    try {
+        ShiftManager.state.isLoading = true;
+        showLoadingState('Loading shift data...');
+        
+        // Fetch shift data
+        const response = await fetch(`/attendance/api/shifts/${id}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch shift data: ${response.status}`);
+        }
+        
+        const shift = await response.json();
+        
+        // Set editing mode
+        ShiftManager.state.editingShiftId = id;
+        
+        // Update modal title
+        const modalTitle = document.getElementById('modal-title');
+        if (modalTitle) modalTitle.textContent = 'Edit Shift';
+        
+        // Open modal without reset (we're editing)
+        const modal = document.getElementById('shiftModal');
+        if (modal) {
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Select shift type and populate form
+        selectShiftType(shift.shift_type);
+        
+        // Wait for form to be visible then populate
+        setTimeout(() => {
+            populateForm(shift);
+        }, ShiftManager.config.animationDuration + 100);
+        
+    } catch (error) {
+        console.error('Error loading shift for edit:', error);
+        showNotification('Failed to load shift data. Please try again.', 'error');
+    } finally {
+        ShiftManager.state.isLoading = false;
+        hideLoadingState();
+    }
+}
+
+function populateForm(shift) {
+    if (!shift) return;
+    
+    try {
+        if (shift.shift_type === 'standard') {
+            populateStandardForm(shift);
+        } else if (shift.shift_type === 'dynamic') {
+            populateDynamicForm(shift);
+        }
+    } catch (error) {
+        console.error('Error populating form:', error);
+        showNotification('Error loading shift data', 'error');
+    }
+}
+
+function populateStandardForm(shift) {
+    const form = document.getElementById('standardShiftForm');
+    const submitBtn = document.getElementById('std-submit-btn');
+    
+    if (!form || !submitBtn) return;
+    
+    try {
+        // Update form action and hidden ID
+        form.action = `/attendance/shift-manager/standard/${shift.id}`;
+        const hiddenId = document.getElementById('std-shift-id');
+        if (hiddenId) hiddenId.value = shift.id;
+        
+        // Populate basic fields
+        const nameField = document.getElementById('std-name');
+        const descField = document.getElementById('std-description');
+        
+        if (nameField) nameField.value = shift.name || '';
+        if (descField) descField.value = shift.description || '';
+        
+        // Populate weekday time fields
+        const weekdayStart = document.getElementById('weekday_start');
+        const weekdayEnd = document.getElementById('weekday_end');
+        
+        if (weekdayStart && shift.weekday_start) weekdayStart.value = shift.weekday_start;
+        if (weekdayEnd && shift.weekday_end) weekdayEnd.value = shift.weekday_end;
+        
+        // Determine weekend policy based on what's configured
+        let policy = 'none';
+        const hasSaturday = shift.saturday_start && shift.saturday_end;
+        const hasSunday = shift.sunday_start && shift.sunday_end;
+        
+        if (hasSaturday && hasSunday) {
+            policy = 'both';
+        } else if (hasSaturday && !hasSunday) {
+            policy = 'saturday_only';
+        } else if (!hasSaturday && hasSunday) {
+            policy = 'sunday_only';
+        }
+        
+        // CRITICAL: Set weekend policy FIRST and trigger change event
+        const policySelect = document.getElementById('std-weekend-policy');
+        if (policySelect) {
+            policySelect.value = policy;
+            // Trigger the change event to show/hide appropriate weekend sections
+            handleWeekendPolicyChange();
+        }
+        
+        // Set active status
+        const isActiveCheckbox = document.querySelector('#standardShiftForm [name="is_active"]');
+        if (isActiveCheckbox) {
+            isActiveCheckbox.checked = shift.is_active;
+        }
+        
+        // Update submit button
+        submitBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Update Standard Shift
+        `;
+        
+        // Wait for weekend sections to be properly shown/hidden, then populate weekend times
+        setTimeout(() => {
+            populateWeekendTimeFields(shift, policy);
+            updateWeekendDurations();
+            updateShiftSummary();
+        }, 50);
+        
+    } catch (error) {
+        console.error('Error in populateStandardForm:', error);
+        showNotification('Error populating form data', 'error');
+    }
+}
+
+function populateWeekendTimeFields(shift, policy) {
+    try {
+        // Get all weekend time input elements
+        const saturdayStart = document.getElementById('saturday_start');
+        const saturdayEnd = document.getElementById('saturday_end');
+        const sundayStart = document.getElementById('sunday_start');
+        const sundayEnd = document.getElementById('sunday_end');
+        const bothWeekendStart = document.getElementById('both-weekend-start');
+        const bothWeekendEnd = document.getElementById('both-weekend-end');
+        
+        // Clear all weekend fields first
+        [saturdayStart, saturdayEnd, sundayStart, sundayEnd, bothWeekendStart, bothWeekendEnd]
+            .forEach(input => {
+                if (input) input.value = '';
+            });
+        
+        // Populate based on policy and shift data
+        switch (policy) {
+            case 'both':
+                // Populate both Saturday and Sunday times
+                if (saturdayStart && shift.saturday_start) saturdayStart.value = shift.saturday_start;
+                if (saturdayEnd && shift.saturday_end) saturdayEnd.value = shift.saturday_end;
+                if (sundayStart && shift.sunday_start) sundayStart.value = shift.sunday_start;
+                if (sundayEnd && shift.sunday_end) sundayEnd.value = shift.sunday_end;
+                
+                // Also populate the "both weekend" visible inputs (they should show Saturday times)
+                if (bothWeekendStart && shift.saturday_start) bothWeekendStart.value = shift.saturday_start;
+                if (bothWeekendEnd && shift.saturday_end) bothWeekendEnd.value = shift.saturday_end;
+                break;
+                
+            case 'saturday_only':
+                // Only populate Saturday times
+                if (saturdayStart && shift.saturday_start) saturdayStart.value = shift.saturday_start;
+                if (saturdayEnd && shift.saturday_end) saturdayEnd.value = shift.saturday_end;
+                break;
+                
+            case 'sunday_only':
+                // Only populate Sunday times
+                if (sundayStart && shift.sunday_start) sundayStart.value = shift.sunday_start;
+                if (sundayEnd && shift.sunday_end) sundayEnd.value = shift.sunday_end;
+                break;
+                
+            case 'none':
+            default:
+                // All fields remain empty (already cleared above)
+                break;
+        }
+        
+    } catch (error) {
+        console.error('Error populating weekend time fields:', error);
+    }
+}
+
+function populateDynamicForm(shift) {
+    const form = document.getElementById('dynamicShiftForm');
+    const submitBtn = document.getElementById('dyn-submit-btn');
+    
+    if (!form || !submitBtn) return;
+    
+    try {
+        // Update form action and hidden ID
+        form.action = `/attendance/shift-manager/dynamic/${shift.id}`;
+        const hiddenId = document.getElementById('dyn-shift-id');
+        if (hiddenId) hiddenId.value = shift.id;
+        
+        // Populate basic fields
+        const nameField = document.getElementById('dyn-name');
+        const descField = document.getElementById('dyn-description');
+        
+        if (nameField) nameField.value = shift.name || '';
+        if (descField) descField.value = shift.description || '';
+        
+        // Populate day schedules
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        
+        days.forEach(day => {
+            const startTime = shift[`${day}_start`];
+            const endTime = shift[`${day}_end`];
+            const toggle = document.querySelector(`[onchange="toggleDaySchedule('${day}')"]`);
+            const timesContainer = document.getElementById(`${day}-times`);
+            const startInput = document.querySelector(`[name="${day}_start"]`);
+            const endInput = document.querySelector(`[name="${day}_end"]`);
+            
+            if (toggle && timesContainer && startInput && endInput) {
+                if (startTime && endTime) {
+                    // Day is enabled with times
+                    toggle.checked = true;
+                    timesContainer.classList.remove('disabled');
+                    startInput.value = startTime;
+                    endInput.value = endTime;
+                    startInput.removeAttribute('disabled');
+                    endInput.removeAttribute('disabled');
+                } else {
+                    // Day is disabled
+                    toggle.checked = false;
+                    timesContainer.classList.add('disabled');
+                    startInput.value = '';
+                    endInput.value = '';
+                    startInput.setAttribute('disabled', 'disabled');
+                    endInput.setAttribute('disabled', 'disabled');
+                }
+            }
+        });
+        
+        // Set active status
+        const isActiveCheckbox = document.querySelector('#dynamicShiftForm [name="is_active"]');
+        if (isActiveCheckbox) {
+            isActiveCheckbox.checked = shift.is_active;
+        }
+        
+        // Update submit button
+        submitBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Update Dynamic Shift
+        `;
+        
+    } catch (error) {
+        console.error('Error in populateDynamicForm:', error);
+        showNotification('Error populating dynamic form data', 'error');
+    }
+}
+
+async function toggleShift(id) {
+    if (ShiftManager.state.isLoading) return;
+    
+    try {
+        ShiftManager.state.isLoading = true;
+        showLoadingState('Updating shift status...');
+        
+        const response = await fetch(`/attendance/shifts/${id}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification(result.message, 'success');
+            
+            // Update the UI immediately to reflect the change
+            updateShiftRowStatus(id, result.is_active);
+            
+            // Optionally reload after a delay
+            setTimeout(() => {
+                if (window.location.pathname.includes('/attendance/shift-manager')) {
+                    location.reload();
+                }
+            }, 1500);
+        } else {
+            throw new Error(result.detail || result.message || 'Failed to toggle shift status');
+        }
+        
+    } catch (error) {
+        console.error('Error toggling shift:', error);
+        showNotification(
+            error.message || 'An error occurred while updating shift status', 
+            'error'
+        );
+    } finally {
+        ShiftManager.state.isLoading = false;
+        hideLoadingState();
+    }
+}
+
+function updateShiftRowStatus(shiftId, isActive) {
+    try {
+        // Find the shift row
+        const toggleButton = document.querySelector(`[onclick="toggleShift(${shiftId})"]`);
+        if (!toggleButton) return;
+        
+        const shiftRow = toggleButton.closest('tr');
+        if (!shiftRow) return;
+        
+        // Update row class
+        if (isActive) {
+            shiftRow.classList.remove('inactive');
+        } else {
+            shiftRow.classList.add('inactive');
+        }
+        
+        // Update status indicator
+        const statusIndicator = shiftRow.querySelector('.status-indicator');
+        if (statusIndicator) {
+            statusIndicator.classList.toggle('active', isActive);
+            statusIndicator.classList.toggle('inactive', !isActive);
+        }
+        
+        // Update toggle button icon
+        const newIcon = isActive ? 
+            // Pause icon (for active shifts)
+            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>` :
+            // Play icon (for inactive shifts)
+            `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5,3 19,12 5,21 5,3"></polygon>
+            </svg>`;
+        
+        toggleButton.innerHTML = newIcon;
+        toggleButton.title = isActive ? 'Pause shift' : 'Activate shift';
+        
+    } catch (error) {
+        console.error('Error updating shift row status:', error);
+    }
+}
+
+function deleteShift(id) {
+    try {
+        ShiftManager.state.deleteShiftId = id;
+        
+        // Update delete message with shift name if available
+        const shiftRow = document.querySelector(`[onclick="deleteShift(${id})"]`)?.closest('tr');
+        const shiftNameElement = shiftRow?.querySelector('.name');
+        const shiftName = shiftNameElement?.textContent?.trim() || 'this shift';
+        
+        const deleteMessage = document.getElementById('delete-message');
+        if (deleteMessage) {
+            deleteMessage.textContent = `Are you sure you want to delete "${sanitizeInput(shiftName)}"? This action cannot be undone and will affect any assigned employees.`;
+        }
+        
+        openDeleteModal();
+        
+    } catch (error) {
+        console.error('Error preparing delete modal:', error);
+        showNotification('Error preparing deletion. Please try again.', 'error');
+    }
+}
+
+async function confirmDelete() {
+    if (!ShiftManager.state.deleteShiftId || ShiftManager.state.isLoading) return;
+    
+    try {
+        ShiftManager.state.isLoading = true;
+        showLoadingState('Deleting shift...');
+        
+        const response = await fetch(`/attendance/shifts/${ShiftManager.state.deleteShiftId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification(result.message, 'success');
+            closeDeleteModal();
+            
+            // Remove the shift row from the table immediately
+            removeShiftRow(ShiftManager.state.deleteShiftId);
+            
+            // Reload after delay to update statistics
+            setTimeout(() => {
+                if (window.location.pathname.includes('/attendance/shift-manager')) {
+                    location.reload();
+                }
+            }, 1500);
+        } else {
+            throw new Error(result.detail || result.message || 'Failed to delete shift');
+        }
+        
+    } catch (error) {
+        console.error('Error deleting shift:', error);
+        showNotification(
+            error.message || 'An error occurred while deleting the shift', 
+            'error'
+        );
+    } finally {
+        ShiftManager.state.isLoading = false;
+        ShiftManager.state.deleteShiftId = null;
+        hideLoadingState();
+    }
+}
+
+function removeShiftRow(shiftId) {
+    try {
+        const deleteButton = document.querySelector(`[onclick="deleteShift(${shiftId})"]`);
+        if (deleteButton) {
+            const shiftRow = deleteButton.closest('tr');
+            if (shiftRow) {
+                // Add fade-out animation
+                shiftRow.style.transition = 'opacity 0.3s ease';
+                shiftRow.style.opacity = '0';
+                
+                // Remove after animation
+                setTimeout(() => {
+                    shiftRow.remove();
+                    
+                    // Check if table is now empty
+                    const tableBody = document.querySelector('#shiftsTable tbody');
+                    if (tableBody && tableBody.children.length === 0) {
+                        // Show empty state or reload page
+                        setTimeout(() => location.reload(), 500);
+                    }
+                }, 300);
+            }
+        }
+    } catch (error) {
+        console.error('Error removing shift row:', error);
+    }
+}
+
+function populateDynamicForm(shift) {
+    const form = document.getElementById('dynamicShiftForm');
+    const submitBtn = document.getElementById('dyn-submit-btn');
+    
+    if (!form || !submitBtn) return;
+    
+    // Update form action and hidden ID
+    form.action = `/attendance/shift-manager/dynamic/${shift.id}`;
+    const hiddenId = document.getElementById('dyn-shift-id');
+    if (hiddenId) hiddenId.value = shift.id;
+    
+    // Populate basic fields
+    const nameField = document.getElementById('dyn-name');
+    const descField = document.getElementById('dyn-description');
+    
+    if (nameField) nameField.value = shift.name || '';
+    if (descField) descField.value = shift.description || '';
+    
+    // Populate day schedules
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    days.forEach(day => {
+        const startTime = shift[`${day}_start`];
+        const endTime = shift[`${day}_end`];
+        const toggle = document.querySelector(`[onchange="toggleDaySchedule('${day}')"]`);
+        const timesContainer = document.getElementById(`${day}-times`);
+        const startInput = document.querySelector(`[name="${day}_start"]`);
+        const endInput = document.querySelector(`[name="${day}_end"]`);
+        
+        if (toggle && timesContainer && startInput && endInput) {
+            if (startTime && endTime) {
+                toggle.checked = true;
+                timesContainer.classList.remove('disabled');
+                startInput.value = startTime;
+                endInput.value = endTime;
+                startInput.removeAttribute('disabled');
+                endInput.removeAttribute('disabled');
+            } else {
+                toggle.checked = false;
+                timesContainer.classList.add('disabled');
+                startInput.value = '';
+                endInput.value = '';
+                startInput.setAttribute('disabled', 'disabled');
+                endInput.setAttribute('disabled', 'disabled');
+            }
+        }
+    });
+    
+    // Set active status
+    const isActiveCheckbox = document.querySelector('#dynamicShiftForm [name="is_active"]');
+    if (isActiveCheckbox) {
+        isActiveCheckbox.checked = shift.is_active;
+    }
+    
+    // Update submit button
+    submitBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        Update Dynamic Shift
+    `;
+}
+
+async function toggleShift(id) {
+    if (ShiftManager.state.isLoading) return;
+    
+    try {
+        ShiftManager.state.isLoading = true;
+        
+        const response = await fetch(`/attendance/shifts/${id}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showNotification(result.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification(result.detail || 'Failed to toggle shift status', 'error');
+        }
+    } catch (error) {
+        console.error('Error toggling shift:', error);
+        showNotification('An error occurred while updating shift status', 'error');
+    } finally {
+        ShiftManager.state.isLoading = false;
+    }
+}
+
+function deleteShift(id) {
+    ShiftManager.state.deleteShiftId = id;
+    
+    // Update delete message with shift name if available
+    const shiftRow = document.querySelector(`[onclick="deleteShift(${id})"]`)?.closest('tr');
+    const shiftName = shiftRow?.querySelector('.name')?.textContent || 'this shift';
+    
+    const deleteMessage = document.getElementById('delete-message');
+    if (deleteMessage) {
+        deleteMessage.textContent = `Are you sure you want to delete "${sanitizeInput(shiftName)}"? This action cannot be undone.`;
+    }
+    
+    openDeleteModal();
+}
+
+async function confirmDelete() {
+    if (!ShiftManager.state.deleteShiftId || ShiftManager.state.isLoading) return;
+    
+    try {
+        ShiftManager.state.isLoading = true;
+        showLoadingState('Deleting shift...');
+        
+        const response = await fetch(`/attendance/shifts/${ShiftManager.state.deleteShiftId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showNotification(result.message, 'success');
+            closeDeleteModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification(result.detail || 'Failed to delete shift', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting shift:', error);
+        showNotification('An error occurred while deleting the shift', 'error');
+    } finally {
+        ShiftManager.state.isLoading = false;
+        hideLoadingState();
+    }
+}
+
+// =============================================================================
+// NOTIFICATION AND LOADING STATES
+// =============================================================================
+
+function showNotification(message, type = 'info') {
+    // Remove existing notifications
+    document.querySelectorAll('.notification').forEach(n => n.remove());
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    const icons = {
+        success: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22,4 12,14.01 9,11.01"></polyline>
+        </svg>`,
+        error: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>`,
+        warning: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>`,
+        info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>`
+    };
+    
+    notification.innerHTML = `
+        ${icons[type] || icons.info}
+        <span>${sanitizeInput(message)}</span>
+        <button onclick="this.parentElement.remove()" aria-label="Close notification">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, ShiftManager.config.notificationDuration);
+}
+
+function showLoadingState(message = 'Loading...') {
+    hideLoadingState(); // Remove existing
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = `
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <span>${sanitizeInput(message)}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+}
+
+function hideLoadingState() {
+    document.querySelectorAll('.loading-overlay').forEach(overlay => overlay.remove());
+}
+
+function showFormError(message, formId = 'standardShiftForm') {
+    removeFormAlerts();
+    
+    const alert = document.createElement('div');
+    alert.className = 'form-alert error';
+    alert.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>
+        <span>${sanitizeInput(message)}</span>
+    `;
+    
+    const form = document.getElementById(formId);
+    if (form) {
+        form.insertBefore(alert, form.firstChild);
+        alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    setTimeout(() => alert.remove(), ShiftManager.config.notificationDuration);
+}
+
+function showFormSuccess(message, formId = 'standardShiftForm') {
+    removeFormAlerts();
+    
+    const alert = document.createElement('div');
+    alert.className = 'form-alert success';
+    alert.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22,4 12,14.01 9,11.01"></polyline>
+        </svg>
+        <span>${sanitizeInput(message)}</span>
+    `;
+    
+    const form = document.getElementById(formId);
+    if (form) {
+        form.insertBefore(alert, form.firstChild);
+    }
+}
+
+// =============================================================================
+// FORM VALIDATION
+// =============================================================================
+
+function validateStandardShift(form) {
+    const data = {
+        name: sanitizeInput(form.name.value),
+        weekdayStart: form.weekday_start.value,
+        weekdayEnd: form.weekday_end.value,
+        policy: form.weekend_policy.value,
+        saturdayStart: form.saturday_start.value,
+        saturdayEnd: form.saturday_end.value,
+        sundayStart: form.sunday_start.value,
+        sundayEnd: form.sunday_end.value
+    };
+    
+    // Validate name
+    if (!data.name || data.name.length < 2) {
+        throw new Error('Shift name must be at least 2 characters long');
+    }
+    
+    if (data.name.length > 100) {
+        throw new Error('Shift name must be less than 100 characters');
+    }
+    
+    // Validate weekday times
+    if (!data.weekdayStart || !data.weekdayEnd) {
+        throw new Error('Weekday start and end times are required');
+    }
+    
+    if (!isValidTimeFormat(data.weekdayStart) || !isValidTimeFormat(data.weekdayEnd)) {
+        throw new Error('Invalid weekday time format');
+    }
+    
+    if (data.weekdayStart >= data.weekdayEnd) {
+        throw new Error('Weekday end time must be after start time');
+    }
+    
+    // Validate weekend times based on policy
+    if (data.policy === 'both') {
+        if (!data.saturdayStart || !data.saturdayEnd) {
+            throw new Error('Weekend times are required when both days are working days');
+        }
+        if (!isValidTimeFormat(data.saturdayStart) || !isValidTimeFormat(data.saturdayEnd)) {
+            throw new Error('Invalid weekend time format');
+        }
+        if (data.saturdayStart >= data.saturdayEnd) {
+            throw new Error('Weekend end time must be after start time');
+        }
+    } else if (data.policy === 'saturday_only') {
+        if (!data.saturdayStart || !data.saturdayEnd) {
+            throw new Error('Saturday times are required when Saturday is a working day');
+        }
+        if (!isValidTimeFormat(data.saturdayStart) || !isValidTimeFormat(data.saturdayEnd)) {
+            throw new Error('Invalid Saturday time format');
+        }
+        if (data.saturdayStart >= data.saturdayEnd) {
+            throw new Error('Saturday end time must be after start time');
+        }
+    } else if (data.policy === 'sunday_only') {
+        if (!data.sundayStart || !data.sundayEnd) {
+            throw new Error('Sunday times are required when Sunday is a working day');
+        }
+        if (!isValidTimeFormat(data.sundayStart) || !isValidTimeFormat(data.sundayEnd)) {
+            throw new Error('Invalid Sunday time format');
+        }
+        if (data.sundayStart >= data.sundayEnd) {
+            throw new Error('Sunday end time must be after start time');
+        }
+    }
+    
+    return data;
+}
+
+function validateDynamicShift(form) {
+    const data = {
+        name: sanitizeInput(form.name.value)
+    };
+    
+    // Validate name
+    if (!data.name || data.name.length < 2) {
+        throw new Error('Shift name must be at least 2 characters long');
+    }
+    
+    if (data.name.length > 100) {
+        throw new Error('Shift name must be less than 100 characters');
+    }
+    
+    // Validate day schedules
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    let hasWorkingDay = false;
+    const errors = [];
+    
+    for (const day of days) {
+        const startInput = document.querySelector(`[name="${day}_start"]`);
+        const endInput = document.querySelector(`[name="${day}_end"]`);
+        
+        if (startInput && endInput && !startInput.disabled && !endInput.disabled) {
+            const startTime = startInput.value;
+            const endTime = endInput.value;
+            
+            if (startTime && endTime) {
+                if (!isValidTimeFormat(startTime) || !isValidTimeFormat(endTime)) {
+                    errors.push(`${day.charAt(0).toUpperCase() + day.slice(1)} has invalid time format`);
+                } else if (startTime >= endTime) {
+                    errors.push(`${day.charAt(0).toUpperCase() + day.slice(1)} end time must be after start time`);
+                } else {
+                    hasWorkingDay = true;
+                }
+            } else if (startTime || endTime) {
+                errors.push(`${day.charAt(0).toUpperCase() + day.slice(1)} requires both start and end times`);
+            }
+        }
+    }
+    
+    if (errors.length > 0) {
+        throw new Error(errors.join('. '));
+    }
+    
+    if (!hasWorkingDay) {
+        throw new Error('At least one working day is required');
+    }
+    
+    return data;
+}
+
+// =============================================================================
+// EVENT LISTENERS AND INITIALIZATION
+// =============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Form submission handlers
+    const standardForm = document.getElementById('standardShiftForm');
+    const dynamicForm = document.getElementById('dynamicShiftForm');
+    
+    if (standardForm) {
+        standardForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            try {
+                validateStandardShift(this);
+                const action = ShiftManager.state.editingShiftId ? 'Updating' : 'Creating';
+                showFormSuccess(`${action} shift...`);
+                
+                setTimeout(() => this.submit(), 500);
+            } catch (error) {
+                showFormError(error.message);
+            }
+        });
+    }
+    
+    if (dynamicForm) {
+        dynamicForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            try {
+                validateDynamicShift(this);
+                const action = ShiftManager.state.editingShiftId ? 'Updating' : 'Creating';
+                showFormSuccess(`${action} shift...`, 'dynamicShiftForm');
+                
+                setTimeout(() => this.submit(), 500);
+            } catch (error) {
+                showFormError(error.message, 'dynamicShiftForm');
+            }
+        });
+    }
+    
+    // Real-time updates for standard form
+    const timeInputs = document.querySelectorAll('#standardShiftForm input[type="time"]');
+    timeInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            updateWeekendDurations();
+            updateShiftSummary();
+        });
+    });
+    
+    // Weekend policy handler
+    const policySelect = document.getElementById('std-weekend-policy');
+    if (policySelect) {
+        policySelect.addEventListener('change', handleWeekendPolicyChange);
+    }
+    
+    // Both weekend time sync handlers
+    const bothWeekendStart = document.getElementById('both-weekend-start');
+    const bothWeekendEnd = document.getElementById('both-weekend-end');
+    
+    if (bothWeekendStart) {
+        bothWeekendStart.addEventListener('change', function() {
+            syncBothWeekendTimes();
+            updateWeekendDurations();
+            updateShiftSummary();
+        });
+    }
+    
+    if (bothWeekendEnd) {
+        bothWeekendEnd.addEventListener('change', function() {
+            syncBothWeekendTimes();
+            updateWeekendDurations();
+            updateShiftSummary();
+        });
+    }
+    
+    // Initialize weekend configuration
+    handleWeekendPolicyChange();
+    updateShiftSummary();
+    
+    // Handle URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const successMsg = urlParams.get('success');
+    const errorMsg = urlParams.get('error');
+    
+    if (successMsg) {
+        showNotification(successMsg, 'success');
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    if (errorMsg) {
+        showNotification(errorMsg, 'error');
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Close modals on Escape
+    if (e.key === 'Escape') {
+        if (document.getElementById('shiftModal')?.classList.contains('show')) {
+            closeShiftModal();
+        }
+        if (document.getElementById('deleteModal')?.classList.contains('show')) {
+            closeDeleteModal();
+        }
+    }
+    
+    // Quick shortcuts
+    if ((e.ctrlKey || e.metaKey) && !ShiftManager.state.isLoading) {
+        switch(e.key) {
+            case 'n':
+                e.preventDefault();
+                openShiftModal();
+                break;
+            case 'k':
+                e.preventDefault();
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+                break;
+        }
+    }
+});
+
+// Modal backdrop clicks
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal-backdrop')) {
+        if (e.target.closest('#shiftModal')) {
+            closeShiftModal();
+        }
+        if (e.target.closest('#deleteModal')) {
+            closeDeleteModal();
+        }
+    }
+});
+
+// Initialize
+console.log('Shift Manager - Production ready and fully operational');
+
+// Export for debugging in development only
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    window.ShiftManager = {
+        ...ShiftManager,
+        openShiftModal,
+        closeShiftModal,
+        editShift,
+        deleteShift,
+        toggleShift,
+        resetModal,
+        showNotification,
+        filterTable,
+        handleWeekendPolicyChange,
+        updateShiftSummary
+    };
+}
+</script>
+
+{% endblock %}

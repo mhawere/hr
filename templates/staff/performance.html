@@ -1,0 +1,1101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="performance-dashboard">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="header-content">
+            <div class="header-text">
+                <h1><i class="fas fa-chart-line"></i> Performance Management</h1>
+                <p>Track achievements, manage warnings, and celebrate success</p>
+            </div>
+            <div class="header-actions">
+                <a href="/performance/badges" class="btn btn-outline">
+                    <i class="fas fa-medal"></i> Manage Badges
+                </a>
+                <button class="btn btn-primary" onclick="showAddRecordModal()">
+                    <i class="fas fa-plus"></i> Add Record
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card achievements">
+            <div class="stat-icon">
+                <i class="fas fa-trophy"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ stats.achievements_count }}</div>
+                <div class="stat-label">Achievements</div>
+            </div>
+        </div>
+        
+        <div class="stat-card warnings">
+            <div class="stat-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ stats.warnings_count }}</div>
+                <div class="stat-label">Warnings</div>
+            </div>
+        </div>
+        
+        <div class="stat-card badges">
+            <div class="stat-icon">
+                <i class="fas fa-medal"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ stats.awarded_badges }}</div>
+                <div class="stat-label">Badges Awarded</div>
+            </div>
+        </div>
+        
+        <div class="stat-card total">
+            <div class="stat-icon">
+                <i class="fas fa-chart-bar"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-number">{{ stats.total_records }}</div>
+                <div class="stat-label">Total Records</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="content-grid">
+        <!-- Top Performers -->
+        <div class="performance-card">
+            <div class="card-header">
+                <h3><i class="fas fa-star"></i> Top Performers</h3>
+                <span class="badge badge-info">By Points</span>
+            </div>
+            <div class="performers-list">
+                {% if top_performers %}
+                    {% for performer in top_performers %}
+                    <div class="performer-item">
+                        <div class="performer-rank">
+                            {% if loop.index == 1 %}
+                                <i class="fas fa-crown gold"></i>
+                            {% elif loop.index == 2 %}
+                                <i class="fas fa-medal silver"></i>
+                            {% elif loop.index == 3 %}
+                                <i class="fas fa-award bronze"></i>
+                            {% else %}
+                                <span class="rank-number">{{ loop.index }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="performer-info">
+                            <div class="performer-name">
+                                {{ performer.first_name }} {{ performer.last_name }}
+                            </div>
+                            <div class="performer-points">
+                                {{ performer.total_points }} points
+                            </div>
+                        </div>
+                        <a href="/performance/employee/{{ performer.id }}" class="view-link">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-chart-line"></i>
+                        <p>No performance data available yet</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="performance-card">
+            <div class="card-header">
+                <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+                <a href="/staff/view" class="view-all-link">View All Employees</a>
+            </div>
+            <div class="activity-timeline">
+                {% if recent_records %}
+                    {% for record in recent_records %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker {{ record.record_type.value }}">
+                            {% if record.record_type.value == 'achievement' %}
+                                <i class="fas fa-trophy"></i>
+                            {% elif record.record_type.value == 'warning' %}
+                                <i class="fas fa-exclamation-triangle"></i>
+                            {% elif record.record_type.value == 'commendation' %}
+                                <i class="fas fa-star"></i>
+                            {% elif record.record_type.value == 'training' %}
+                                <i class="fas fa-graduation-cap"></i>
+                            {% else %}
+                                <i class="fas fa-file-alt"></i>
+                            {% endif %}
+                        </div>
+                        <div class="timeline-content">
+                            <div class="timeline-header">
+                                <span class="employee-name">
+                                    {{ record.employee.first_name }} {{ record.employee.last_name }}
+                                </span>
+                                <span class="record-type {{ record.record_type.value }}">
+                                    {{ record.record_type.value.replace('_', ' ').title() }}
+                                </span>
+                            </div>
+                            <div class="timeline-title">{{ record.title }}</div>
+                            <div class="timeline-date">
+                                {{ record.effective_date.strftime('%B %d, %Y') }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-history"></i>
+                        <p>No recent activity</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="performance-card">
+            <div class="card-header">
+                <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+            </div>
+            <div class="quick-actions">
+                <button class="action-btn achievement" onclick="showQuickAddModal('achievement')">
+                    <i class="fas fa-trophy"></i>
+                    <span>Add Achievement</span>
+                </button>
+                <button class="action-btn warning" onclick="showQuickAddModal('warning')">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Issue Warning</span>
+                </button>
+                <button class="action-btn training" onclick="showQuickAddModal('training')">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>Training Complete</span>
+                </button>
+                <button class="action-btn commendation" onclick="showQuickAddModal('commendation')">
+                    <i class="fas fa-star"></i>
+                    <span>Commendation</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Badge Overview -->
+        <div class="performance-card">
+            <div class="card-header">
+                <h3><i class="fas fa-medal"></i> Badge System Overview</h3>
+                <a href="/performance/badges" class="view-all-link">Manage All</a>
+            </div>
+            <div class="badge-overview">
+                <div class="badge-stat">
+                    <div class="badge-count">{{ stats.total_badges }}</div>
+                    <div class="badge-label">Total Badges</div>
+                </div>
+                <div class="badge-stat">
+                    <div class="badge-count">{{ stats.awarded_badges }}</div>
+                    <div class="badge-label">Awards Given</div>
+                </div>
+                <div class="badge-categories">
+                    <div class="category-tag attendance">Attendance</div>
+                    <div class="category-tag performance">Performance</div>
+                    <div class="category-tag tenure">Tenure</div>
+                    <div class="category-tag training">Training</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Record Modal -->
+<div class="modal" id="addRecordModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-plus"></i> Add Performance Record</h3>
+            <button class="modal-close" onclick="closeModal('addRecordModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form method="POST" action="/performance/record/add" class="modal-form">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="employee_select">Employee *</label>
+                    <select name="employee_id" id="employee_select" required>
+                        <option value="">Select Employee</option>
+                        <!-- Will be populated via JavaScript -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="record_type">Record Type *</label>
+                    <select name="record_type" id="record_type" required>
+                        <option value="">Select Type</option>
+                        <option value="achievement">Achievement</option>
+                        <option value="warning">Warning</option>
+                        <option value="disciplinary">Disciplinary Action</option>
+                        <option value="commendation">Commendation</option>
+                        <option value="training">Training Completion</option>
+                        <option value="goal_achievement">Goal Achievement</option>
+                        <option value="performance_review">Performance Review</option>
+                        <option value="promotion">Promotion</option>
+                        <option value="bonus">Bonus/Reward</option>
+                    </select>
+                </div>
+                
+                <div class="form-group full-width">
+                    <label for="title">Title *</label>
+                    <input type="text" name="title" id="title" required maxlength="200" 
+                           placeholder="Brief title for this record">
+                </div>
+                
+                <div class="form-group full-width">
+                    <label for="description">Description</label>
+                    <textarea name="description" id="description" rows="4" 
+                              placeholder="Detailed description of the performance record"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="points">Points</label>
+                    <input type="number" name="points" id="points" value="0" min="-100" max="500"
+                           title="Positive points for achievements, negative for warnings">
+                    <small>Positive for good performance, negative for issues</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="effective_date">Effective Date</label>
+                    <input type="date" name="effective_date" id="effective_date" 
+                           value="{{ date.today().isoformat() }}">
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addRecordModal')">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Add Record
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Quick Add Modal -->
+<div class="modal" id="quickAddModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="quickModalTitle"><i class="fas fa-plus"></i> Quick Add</h3>
+            <button class="modal-close" onclick="closeModal('quickAddModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form method="POST" action="/performance/record/add" class="modal-form">
+            <input type="hidden" name="record_type" id="quick_record_type">
+            
+            <div class="form-group">
+                <label for="quick_employee_select">Employee *</label>
+                <select name="employee_id" id="quick_employee_select" required>
+                    <option value="">Select Employee</option>
+                    <!-- Will be populated via JavaScript -->
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="quick_title">Title *</label>
+                <input type="text" name="title" id="quick_title" required maxlength="200">
+            </div>
+            
+            <div class="form-group">
+                <label for="quick_description">Description</label>
+                <textarea name="description" id="quick_description" rows="3"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="quick_points">Points</label>
+                <input type="number" name="points" id="quick_points" value="0">
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('quickAddModal')">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Add Record
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* Performance Dashboard Styles */
+.performance-dashboard {
+    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.dashboard-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.header-text h1 {
+    margin: 0 0 0.5rem 0;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.header-text p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 1.1rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Statistics Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--accent-color);
+}
+
+.stat-card.achievements::before { background: #10b981; }
+.stat-card.warnings::before { background: #f59e0b; }
+.stat-card.badges::before { background: #8b5cf6; }
+.stat-card.total::before { background: #3b82f6; }
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+}
+
+.achievements .stat-icon { background: linear-gradient(135deg, #10b981, #059669); }
+.warnings .stat-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.badges .stat-icon { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.total .stat-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Content Grid */
+.content-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+}
+
+.performance-card {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.performance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+
+.card-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.view-all-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.view-all-link:hover {
+    text-decoration: underline;
+}
+
+/* Top Performers */
+.performers-list {
+    padding: 1rem;
+}
+
+.performer-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.performer-item:hover {
+    background: #f8fafc;
+}
+
+.performer-rank {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 700;
+}
+
+.performer-rank .gold { color: #fbbf24; }
+.performer-rank .silver { color: #9ca3af; }
+.performer-rank .bronze { color: #d97706; }
+
+.rank-number {
+    background: #e5e7eb;
+    color: #6b7280;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.performer-info {
+    flex: 1;
+}
+
+.performer-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.performer-points {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.view-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+}
+
+.view-link:hover {
+    background: var(--primary-light);
+    color: white;
+}
+
+/* Activity Timeline */
+.activity-timeline {
+    padding: 1rem;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    position: relative;
+}
+
+.timeline-item:last-child {
+    border-bottom: none;
+}
+
+.timeline-marker {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.timeline-marker.achievement { background: linear-gradient(135deg, #10b981, #059669); }
+.timeline-marker.warning { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.timeline-marker.commendation { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.timeline-marker.training { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+
+.timeline-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.employee-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.record-type {
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.record-type.achievement { 
+    background: #d1fae5; 
+    color: #065f46; 
+}
+
+.record-type.warning { 
+    background: #fee2e2; 
+    color: #991b1b; 
+}
+
+.record-type.commendation { 
+    background: #ede9fe; 
+    color: #5b21b6; 
+}
+
+.record-type.training { 
+    background: #dbeafe; 
+    color: #1e40af; 
+}
+
+.timeline-title {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.timeline-date {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Quick Actions */
+.quick-actions {
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.75rem;
+    background: white;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.action-btn:hover {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.action-btn i {
+    font-size: 1.5rem;
+}
+
+.action-btn span {
+    font-weight: 500;
+    text-align: center;
+}
+
+/* Badge Overview */
+.badge-overview {
+    padding: 1.5rem;
+}
+
+.badge-stat {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.badge-count {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.badge-label {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.category-tag {
+    padding: 0.375rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.category-tag.attendance { background: #dbeafe; color: #1e40af; }
+.category-tag.performance { background: #d1fae5; color: #065f46; }
+.category-tag.tenure { background: #ede9fe; color: #5b21b6; }
+.category-tag.training { background: #fef3c7; color: #92400e; }
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 1rem;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+    background: #f3f4f6;
+    color: var(--text-primary);
+}
+
+.modal-form {
+    padding: 1.5rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .performance-dashboard {
+        padding: 1rem;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .content-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .quick-actions {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 1rem;
+    }
+    
+    .timeline-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .performer-item {
+        padding: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-header {
+        padding: 1.5rem;
+    }
+    
+    .header-text h1 {
+        font-size: 1.5rem;
+    }
+    
+    .stat-card {
+        padding: 1rem;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+    }
+    
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+}
+</style>
+
+<script>
+// JavaScript for Performance Dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    loadEmployees();
+    initializeRecordTypeDefaults();
+});
+
+// Load employees for dropdowns
+async function loadEmployees() {
+    try {
+        const response = await fetch('/staff/api/employees');
+        const employees = await response.json();
+        
+        const employeeSelects = ['employee_select', 'quick_employee_select'];
+        employeeSelects.forEach(selectId => {
+            const select = document.getElementById(selectId);
+            if (select) {
+                select.innerHTML = '<option value="">Select Employee</option>';
+                employees.forEach(emp => {
+                    const option = document.createElement('option');
+                    option.value = emp.id;
+                    option.textContent = `${emp.first_name} ${emp.last_name} (${emp.employee_id})`;
+                    select.appendChild(option);
+                });
+            }
+        });
+    } catch (error) {
+        console.error('Failed to load employees:', error);
+    }
+}
+
+// Initialize record type defaults
+function initializeRecordTypeDefaults() {
+    const recordTypeSelect = document.getElementById('record_type');
+    const pointsInput = document.getElementById('points');
+    
+    if (recordTypeSelect && pointsInput) {
+        recordTypeSelect.addEventListener('change', function() {
+            const recordType = this.value;
+            
+            // Set default points based on record type
+            switch(recordType) {
+                case 'achievement':
+                    pointsInput.value = 50;
+                    break;
+                case 'commendation':
+                    pointsInput.value = 25;
+                    break;
+                case 'training':
+                    pointsInput.value = 20;
+                    break;
+                case 'warning':
+                    pointsInput.value = -10;
+                    break;
+                case 'disciplinary':
+                    pointsInput.value = -25;
+                    break;
+                case 'goal_achievement':
+                    pointsInput.value = 30;
+                    break;
+                case 'promotion':
+                    pointsInput.value = 100;
+                    break;
+                case 'bonus':
+                    pointsInput.value = 40;
+                    break;
+                default:
+                    pointsInput.value = 0;
+            }
+        });
+    }
+}
+
+// Modal functions
+function showAddRecordModal() {
+    document.getElementById('addRecordModal').classList.add('show');
+}
+
+function showQuickAddModal(recordType) {
+    const modal = document.getElementById('quickAddModal');
+    const typeInput = document.getElementById('quick_record_type');
+    const titleInput = document.getElementById('quick_title');
+    const pointsInput = document.getElementById('quick_points');
+    const titleElement = document.getElementById('quickModalTitle');
+    
+    typeInput.value = recordType;
+    
+    // Set modal title and defaults based on record type
+    switch(recordType) {
+        case 'achievement':
+            titleElement.innerHTML = '<i class="fas fa-trophy"></i> Add Achievement';
+            titleInput.placeholder = 'e.g., Exceeded quarterly targets';
+            pointsInput.value = 50;
+            break;
+        case 'warning':
+            titleElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Issue Warning';
+            titleInput.placeholder = 'e.g., Repeated tardiness';
+            pointsInput.value = -10;
+            break;
+        case 'training':
+            titleElement.innerHTML = '<i class="fas fa-graduation-cap"></i> Training Completed';
+            titleInput.placeholder = 'e.g., Leadership Training Program';
+            pointsInput.value = 20;
+            break;
+        case 'commendation':
+            titleElement.innerHTML = '<i class="fas fa-star"></i> Add Commendation';
+            titleInput.placeholder = 'e.g., Excellent customer service';
+            pointsInput.value = 25;
+            break;
+    }
+    
+    modal.classList.add('show');
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('show');
+}
+
+// Close modals when clicking outside
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+        e.target.classList.remove('show');
+    }
+});
+
+// Close modals with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal.show').forEach(modal => {
+            modal.classList.remove('show');
+        });
+    }
+});
+
+// Form validation
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const requiredFields = form.querySelectorAll('[required]');
+        let isValid = true;
+        
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                isValid = false;
+                field.style.borderColor = '#ef4444';
+            } else {
+                field.style.borderColor = '#e5e7eb';
+            }
+        });
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert('Please fill in all required fields.');
+        }
+    });
+});
+</script>
+{% endblock %}

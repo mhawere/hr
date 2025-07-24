@@ -1,0 +1,2246 @@
+{% extends "base.html" %}
+
+{% block title %}{{ employee.first_name }} {{ employee.last_name }} - Leave Management{% endblock %}
+
+{% block page_title %}Leave Management{% endblock %}
+
+{% block content %}
+{% set current_date = moment().date() if moment is defined else none %}
+{% set today = moment().date() if moment is defined else none %}
+
+<!-- Template Data Script - Load First -->
+<script id="template-data" type="application/json">
+{
+    "leaveTypes": {{ (leave_types_json or [])|tojson|safe }},
+    "publicHolidays": {{ (public_holidays_json or [])|tojson|safe }},
+    "currentBalance": {{ (balance_data.remaining_earned if balance_data and balance_data.remaining_earned is not none else 0)|float }},
+    "earliestAllowed": "{{ (earliest_allowed_date or '')|string|e }}",
+    "maxBackdateMonths": {{ (max_backdate_months or 6)|int }},
+    "employeeId": {{ (employee.id if employee and employee.id is not none else 0)|int }}
+}
+</script>
+
+<div class="leave-management-page">
+    <!-- Employee Header -->
+    <div class="employee-header">
+        <div class="employee-avatar-large">
+            {% if employee.photo %}
+                <img src="/static/{{ employee.photo }}" alt="{{ employee.first_name }} {{ employee.last_name }}">
+            {% else %}
+                <div class="avatar-placeholder-large">
+                    {{ employee.first_name[0] }}{{ employee.last_name[0] }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="employee-info-header">
+            <h1>{{ employee.first_name }} {{ employee.last_name }}</h1>
+            <p class="employee-id">ID: {{ employee.employee_id }}</p>
+            <p style="color: var(--text-secondary, #6c757d); margin: 0;">
+                {{ employee.department.name if employee.department else 'No Department' }} • {{ employee.position }}
+            </p>
+            <div class="status-badges">
+                <span class="status-badge status-{{ employee.status.value.lower().replace(' ', '-') }}">
+                    {{ employee.status.value }}
+                </span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="/staff/view/{{ employee.id }}" class="btn btn-outline">
+                <i class="fas fa-arrow-left"></i> Back to Profile
+            </a>
+            <a href="/leave/employee/{{ employee.id }}/calendar" class="btn btn-secondary">
+                <i class="fas fa-calendar"></i> Calendar View
+            </a>
+            <button class="btn btn-primary" onclick="openCreateLeaveModal()">
+                <i class="fas fa-plus"></i> Request Leave
+            </button>
+            <button class="btn btn-info" onclick="openPublicHolidayModal()">
+                <i class="fas fa-calendar-plus"></i> Manage Holidays
+            </button>
+            <div class="balance-card recalculate">
+                <div class="balance-icon">
+                    <i class="fas fa-sync-alt"></i>
+                </div>
+                <div class="balance-content">
+                    <h3 style="font-size: 1.2rem; margin-bottom: 1rem;">Update Balance</h3>
+                    <p style="margin-bottom: 1rem;">Recalculate leave entitlement</p>
+                    <button class="btn btn-primary" onclick="recalculateLeaveBalance()" id="recalculateBtn">
+                        <i class="fas fa-calculator"></i> Recalculate
+                    </button>
+                    <button class="btn btn-info" onclick="showCalculationBreakdown()" id="showCalculationBtn">
+                        <i class="fas fa-calculator"></i> Show Calculation
+                    </button>
+                    <div class="recalculate-info" style="margin-top: 0.5rem;">
+                        <small style="color: var(--text-secondary, #6c757d);">
+                            Last updated: <span id="lastUpdated">{{ balance_data.last_calculated.strftime('%d %b %Y at %H:%M') if balance_data and balance_data.get('last_calculated') else 'Never' }}</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leave Balance Cards -->
+    <div class="balance-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <!-- Actual Balance (Based on Attendance) -->
+        <div class="balance-card earned">
+            <div class="balance-icon">
+                <i class="fas fa-user-check"></i>
+            </div>
+            <div class="balance-content">
+                <h3>{{ "%.1f"|format(balance_data.earned_days if balance_data else 0) }}</h3>
+                <p>Earned Leave Days</p>
+                <span class="balance-subtitle">Based on {{ "%.1f"|format(balance_data.attendance_percentage if balance_data else 0) }}% attendance</span>
+                <div class="balance-breakdown">
+                    <small>Working Days: {{ balance_data.actual_working_days if balance_data else 0 }}/{{ balance_data.total_possible_working_days if balance_data else 0 }}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Maximum Entitlement (Based on Calendar) -->
+        <div class="balance-card entitled">
+            <div class="balance-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="balance-content">
+                <h3>{{ "%.1f"|format(balance_data.max_entitled_days if balance_data else 0) }}</h3>
+                <p>Maximum Entitled</p>
+                <span class="balance-subtitle">{{ balance_data.months_worked if balance_data else 0 }} months × 2.5 days</span>
+                <div class="balance-breakdown">
+                    <small>Calendar months worked in {{ current_year }}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Used Leave -->
+        <div class="balance-card used">
+            <div class="balance-icon">
+                <i class="fas fa-calendar-minus"></i>
+            </div>
+            <div class="balance-content">
+                <h3>{{ "%.1f"|format(balance_data.used_days if balance_data else 0) }}</h3>
+                <p>Used Leave Days</p>
+                <span class="balance-subtitle">Current year usage</span>
+            </div>
+        </div>
+
+        <!-- Remaining Balance -->
+        <div class="balance-card remaining">
+            <div class="balance-icon">
+                <i class="fas fa-calendar-plus"></i>
+            </div>
+            <div class="balance-content">
+                <h3>{{ "%.1f"|format(balance_data.remaining_earned if balance_data else 0) }}</h3>
+                <p>Remaining Balance</p>
+                <span class="balance-subtitle">Available for use</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leave Records Tabs -->
+    <div class="leave-tabs">
+        <div class="tab-headers">
+            <button class="tab-btn active" onclick="switchTab('all')">All Leave ({{ leaves|length }})</button>
+            <button class="tab-btn" onclick="switchTab('active')">Active/Upcoming ({{ active_leaves|length }})</button>
+            <button class="tab-btn" onclick="switchTab('past')">Past Leave ({{ past_leaves|length }})</button>
+        </div>
+
+        <!-- All Leave Tab -->
+        <div id="all-tab" class="tab-content active">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3><i class="fas fa-list"></i> All Leave Records</h3>
+                    <span class="record-count">{{ leaves|length }} records</span>
+                </div>
+                
+                {% if leaves %}
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Period</th>
+                                <th>Days</th>
+                                <th>Status</th>
+                                <th>Reason</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for leave in leaves %}
+                            {% set today_date = moment().strftime('%Y-%m-%d') if moment is defined else '2025-01-01' %}
+                            {% set is_backdated = leave.start_date < leave.created_at.date() %}
+                            {% set leave_color = (leave.leave_type.color if leave.leave_type and leave.leave_type.color else '#6b1e1e') %}
+                            <tr class="leave-row {{ 'backdated-leave' if is_backdated else '' }}">
+                                <td>
+                                    <div class="leave-type-badge" style="background-color: {{ leave_color }}20; color: {{ leave_color }}; border: 1px solid {{ leave_color }}40;">
+                                        {{ leave.leave_type.name }}
+                                        {% if is_backdated %}
+                                            <span class="backdated-indicator" title="Backdated Entry">🕒</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="leave-period">
+                                        <div class="leave-dates">
+                                            <strong>{{ leave.start_date.strftime('%d %b %Y') }}</strong> to <strong>{{ leave.end_date.strftime('%d %b %Y') }}</strong>
+                                            {% if is_backdated %}
+                                                <div class="backdated-info">
+                                                    <small class="backdated-text">Backdated entry</small>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="leave-duration">
+                                            {% set duration = (leave.end_date - leave.start_date).days + 1 %}
+                                            {{ duration }} calendar day{{ 's' if duration != 1 else '' }}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="working-days">
+                                        <strong>{{ "%.1f"|format(leave.days_requested) }}</strong>
+                                        <small>working days</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if leave.status.value == 'Active' %}
+                                        {% set today_str = moment().strftime('%Y-%m-%d') if moment is defined else '2025-06-14' %}
+                                        {% set start_str = leave.start_date.strftime('%Y-%m-%d') %}
+                                        {% set end_str = leave.end_date.strftime('%Y-%m-%d') %}
+                                        {% if start_str > today_str %}
+                                            <span class="status-badge status-upcoming">UPCOMING</span>
+                                        {% elif start_str <= today_str <= end_str %}
+                                            <span class="status-badge status-current">ON LEAVE</span>
+                                        {% else %}
+                                            <span class="status-badge status-completed">COMPLETED</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="status-badge status-{{ leave.status.value.lower() }}">{{ leave.status.value.upper() }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="leave-reason">
+                                        <div class="reason-text">{{ leave.reason[:100] }}{% if leave.reason|length > 100 %}...{% endif %}</div>
+                                        {% if leave.comments %}
+                                            <div class="comments-text">
+                                                <small><em>{{ leave.comments[:50] }}{% if leave.comments|length > 50 %}...{% endif %}</em></small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-sm btn-outline" onclick="viewLeaveDetails({{ leave.id }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if leave.attachment %}
+                                            <a href="/leave/download/{{ leave.id }}/attachment" class="btn btn-sm btn-info" target="_blank">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                        {% endif %}
+                                        {% set today_str = moment().strftime('%Y-%m-%d') if moment is defined else '2025-06-14' %}
+                                        {% set start_str = leave.start_date.strftime('%Y-%m-%d') %}
+                                        {% if leave.status.value == 'Active' and start_str > today_str %}
+                                            <button class="btn btn-sm btn-danger" onclick="cancelLeave({{ leave.id }})">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times" style="font-size: 4rem; color: var(--text-secondary, #6c757d); margin-bottom: 1rem;"></i>
+                        <h4>No Leave Records</h4>
+                        <p>No leave requests found for this employee.</p>
+                        <button class="btn btn-primary" onclick="openCreateLeaveModal()">
+                            <i class="fas fa-plus"></i> Request Leave
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Active/Upcoming Leave Tab -->
+        <div id="active-tab" class="tab-content">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3><i class="fas fa-calendar-check"></i> Active & Upcoming Leave</h3>
+                    <span class="record-count">{{ active_leaves|length }} records</span>
+                </div>
+                
+                {% if active_leaves %}
+                    <div class="leave-grid">
+                        {% for leave in active_leaves %}
+                        {% set today_str = moment().strftime('%Y-%m-%d') if moment is defined else '2025-06-14' %}
+                        {% set start_str = leave.start_date.strftime('%Y-%m-%d') %}
+                        {% set end_str = leave.end_date.strftime('%Y-%m-%d') %}
+                        {% set is_backdated = leave.start_date < leave.created_at.date() %}
+                        {% set leave_color = (leave.leave_type.color if leave.leave_type and leave.leave_type.color else '#6b1e1e') %}
+                        <div class="leave-card {{ 'current-leave' if start_str <= today_str <= end_str else 'upcoming-leave' }} {{ 'backdated-card' if is_backdated else '' }}">
+                            <div class="leave-card-header">
+                                <div class="leave-type-badge" style="background-color: {{ leave_color }}20; color: {{ leave_color }};">
+                                    {{ leave.leave_type.name }}
+                                    {% if is_backdated %}
+                                        <span class="backdated-indicator" title="Backdated Entry">🕒</span>
+                                    {% endif %}
+                                </div>
+                                <div class="leave-days">{{ "%.1f"|format(leave.days_requested) }} days</div>
+                            </div>
+                            <div class="leave-card-body">
+                                <div class="leave-period">
+                                    <strong>{{ leave.start_date.strftime('%d %b') }} - {{ leave.end_date.strftime('%d %b %Y') }}</strong>
+                                    {% if is_backdated %}
+                                        <div class="backdated-info">
+                                            <small class="backdated-text">Backdated entry</small>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="leave-reason">{{ leave.reason[:80] }}{% if leave.reason|length > 80 %}...{% endif %}</div>
+                            </div>
+                            <div class="leave-card-actions">
+                                <button class="btn btn-sm btn-outline" onclick="viewLeaveDetails({{ leave.id }})">View</button>
+                                {% if start_str > today_str %}
+                                    <button class="btn btn-sm btn-danger" onclick="cancelLeave({{ leave.id }})">Cancel</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-check" style="font-size: 4rem; color: var(--text-secondary, #6c757d); margin-bottom: 1rem;"></i>
+                        <h4>No Active Leave</h4>
+                        <p>No active or upcoming leave requests.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Past Leave Tab -->
+        <div id="past-tab" class="tab-content">
+            <div class="table-container">
+                <div class="table-header">
+                    <h3><i class="fas fa-history"></i> Past Leave</h3>
+                    <span class="record-count">{{ past_leaves|length }} records</span>
+                </div>
+                
+                {% if past_leaves %}
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Period</th>
+                                <th>Days</th>
+                                <th>Status</th>
+                                <th>Reason</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for leave in past_leaves %}
+                            {% set is_backdated = leave.start_date < leave.created_at.date() %}
+                            {% set leave_color = (leave.leave_type.color if leave.leave_type and leave.leave_type.color else '#6b1e1e') %}
+                            <tr class="leave-row past {{ 'backdated-leave' if is_backdated else '' }}">
+                                <td>
+                                    <div class="leave-type-badge" style="background-color: {{ leave_color }}20; color: {{ leave_color }};">
+                                        {{ leave.leave_type.name }}
+                                        {% if is_backdated %}
+                                            <span class="backdated-indicator" title="Backdated Entry">🕒</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="leave-period">
+                                        <div class="leave-dates">
+                                            {{ leave.start_date.strftime('%d %b %Y') }} to {{ leave.end_date.strftime('%d %b %Y') }}
+                                            {% if is_backdated %}
+                                                <div class="backdated-info">
+                                                    <small class="backdated-text">Backdated entry</small>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="working-days">
+                                        <strong>{{ "%.1f"|format(leave.days_requested) }}</strong>
+                                        <small>working days</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ leave.status.value.lower() }}">{{ leave.status.value.upper() }}</span>
+                                </td>
+                                <td>
+                                    <div class="leave-reason">
+                                        {{ leave.reason[:100] }}{% if leave.reason|length > 100 %}...{% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-sm btn-outline" onclick="viewLeaveDetails({{ leave.id }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if leave.attachment %}
+                                            <a href="/leave/download/{{ leave.id }}/attachment" class="btn btn-sm btn-info" target="_blank">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-history" style="font-size: 4rem; color: var(--text-secondary, #6c757d); margin-bottom: 1rem;"></i>
+                        <h4>No Past Leave</h4>
+                        <p>No past leave records found.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Public Holidays Section -->
+    <div class="holidays-section" style="margin-top: 2rem;">
+        <div class="section-header">
+            <h3><i class="fas fa-calendar-alt"></i> Public Holidays {{ current_year }}</h3>
+            <button class="btn btn-outline" onclick="openPublicHolidayModal()">
+                <i class="fas fa-plus"></i> Add Holiday
+            </button>
+        </div>
+        
+        {% if public_holidays %}
+            <div class="holidays-grid">
+                {% for holiday in public_holidays %}
+                <div class="holiday-card">
+                    <div class="holiday-date">
+                        <div class="day">{{ holiday.date.strftime('%d') }}</div>
+                        <div class="month">{{ holiday.date.strftime('%b') }}</div>
+                    </div>
+                    <div class="holiday-info">
+                        <div class="holiday-name">{{ holiday.name }}</div>
+                        {% if holiday.description %}
+                            <div class="holiday-description">{{ holiday.description }}</div>
+                        {% endif %}
+                        <div class="holiday-weekday">{{ holiday.date.strftime('%A') }}</div>
+                    </div>
+                    <div class="holiday-actions">
+                        <button class="btn btn-sm btn-danger" onclick="deleteHoliday({{ holiday.id }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-calendar-plus" style="font-size: 3rem; color: var(--text-secondary, #6c757d); margin-bottom: 1rem;"></i>
+                <h4>No Public Holidays</h4>
+                <p>No public holidays defined for {{ current_year }}.</p>
+                <button class="btn btn-primary" onclick="openPublicHolidayModal()">
+                    <i class="fas fa-plus"></i> Add First Holiday
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Create Leave Modal -->
+<div id="createLeaveModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h4><i class="fas fa-plus"></i> Request Leave</h4>
+            <button class="modal-close" onclick="closeCreateLeaveModal()">&times;</button>
+        </div>
+        
+        <form id="createLeaveForm" method="POST" action="/leave/employee/{{ employee.id }}/create" enctype="multipart/form-data">
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="leave_type_id">Leave Type <span class="required">*</span></label>
+                        <select id="leave_type_id" name="leave_type_id" required>
+                            <option value="">Select Leave Type</option>
+                            {% for leave_type in leave_types %}
+                                <option value="{{ leave_type.id }}" data-max-days="{{ leave_type.max_days_per_year }}">
+                                    {{ leave_type.name }} (Max: {{ leave_type.max_days_per_year }} days)
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="start_date">Start Date <span class="required">*</span></label>
+                        <input type="date" id="start_date" name="start_date" required>
+                        <small class="form-help">📅 You can select dates up to {{ max_backdate_months|default(6) }} months in the past</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="end_date">End Date <span class="required">*</span></label>
+                        <input type="date" id="end_date" name="end_date" required>
+                    </div>
+                    
+                    <!-- Backdated warning area -->
+                    <div id="backdated_warning" class="form-group full-width" style="display: none;">
+                        <!-- JavaScript will populate this -->
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label for="reason">Reason <span class="required">*</span></label>
+                        <textarea id="reason" name="reason" rows="3" required minlength="10" placeholder="Please provide a detailed reason for your leave request..."></textarea>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label for="comments">Additional Comments</label>
+                        <textarea id="comments" name="comments" rows="2" placeholder="Any additional information or special requests..."></textarea>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label for="attachment">Supporting Document</label>
+                        <input type="file" id="attachment" name="attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                        <small class="form-help">Upload medical certificate or other supporting documents (PDF, DOC, DOCX, JPG, PNG - Max 10MB)</small>
+                    </div>
+                </div>
+                
+                <!-- Leave Calculation Preview -->
+                <div id="leaveCalculation" class="leave-calculation" style="display: none;">
+                    <div class="calculation-header">
+                        <h5><i class="fas fa-calculator"></i> Leave Calculation</h5>
+                    </div>
+                    <div class="calculation-body">
+                        <div class="calc-row">
+                            <span>Calendar Days:</span>
+                            <span id="calendarDays">-</span>
+                        </div>
+                        <div class="calc-row">
+                            <span>Working Days:</span>
+                            <span id="workingDays">-</span>
+                        </div>
+                        <div class="calc-row">
+                            <span>Public Holidays:</span>
+                            <span id="publicHolidays">-</span>
+                        </div>
+                        <div class="calc-row total">
+                            <span><strong>Total Leave Days:</strong></span>
+                            <span id="totalLeaveDays"><strong>-</strong></span>
+                        </div>
+                        <div class="calc-row balance">
+                            <span>Available Balance:</span>
+                            <span id="availableBalance">{{ "%.1f"|format(balance_data.remaining_earned if balance_data else 0) }} days</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeCreateLeaveModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="submitLeaveBtn">
+                    <i class="fas fa-paper-plane"></i> Submit Request
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Public Holiday Modal -->
+<div id="publicHolidayModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+            <h4><i class="fas fa-calendar-plus"></i> Add Public Holiday</h4>
+            <button class="modal-close" onclick="closePublicHolidayModal()">&times;</button>
+        </div>
+        
+        <form id="publicHolidayForm" method="POST" action="/leave/holidays/add">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="holiday_date">Date <span class="required">*</span></label>
+                    <input type="date" id="holiday_date" name="holiday_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="holiday_name">Holiday Name <span class="required">*</span></label>
+                    <input type="text" id="holiday_name" name="name" required minlength="2" placeholder="e.g., Independence Day">
+                </div>
+                
+                <div class="form-group">
+                    <label for="holiday_description">Description</label>
+                    <textarea id="holiday_description" name="description" rows="2" placeholder="Optional description of the holiday..."></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closePublicHolidayModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add Holiday
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Leave Details Modal -->
+<div id="leaveDetailsModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h4><i class="fas fa-eye"></i> Leave Details</h4>
+            <button class="modal-close" onclick="closeLeaveDetailsModal()">&times;</button>
+        </div>
+        
+        <div class="modal-body" id="leaveDetailsContent">
+            <!-- Leave details will be loaded here -->
+        </div>
+        
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeLeaveDetailsModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Calculation Breakdown Modal -->
+<div id="calculationModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h4><i class="fas fa-calculator"></i> Leave Calculation Breakdown</h4>
+            <button class="modal-close" onclick="closeCalculationModal()">&times;</button>
+        </div>
+        
+        <div class="modal-body" id="calculationContent">
+            <!-- Calculation details will be loaded here -->
+        </div>
+        
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeCalculationModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Leave Management Styles - Enhanced with Backdating Support */
+:root {
+    --primary-color: #6b1e1e;
+    --primary-light: #8b2a2a;
+    --primary-dark: #4a1515;
+    --secondary-color: #f8f9fa;
+    --accent-color: #ffffff;
+    --text-primary: #2c3e50;
+    --text-secondary: #6c757d;
+    --border-color: #dee2e6;
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+    --sidebar-width: 250px;
+}
+
+.leave-management-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* Balance Cards */
+.balance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.balance-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.balance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.balance-card.earned {
+    border-left: 4px solid #10b981;
+}
+
+.balance-card.entitled {
+    border-left: 4px solid #3b82f6;
+}
+
+.balance-card.used {
+    border-left: 4px solid #f59e0b;
+}
+
+.balance-card.remaining {
+    border-left: 4px solid #8b5cf6;
+}
+
+.balance-card.recalculate {
+    border-left: 4px solid #06b6d4;
+    background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+}
+
+.balance-icon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    opacity: 0.1;
+    font-size: 2rem;
+}
+
+.balance-content h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    color: var(--primary-color, #6b1e1e);
+}
+
+.balance-content p {
+    font-weight: 600;
+    margin: 0 0 0.25rem 0;
+    color: var(--text-primary, #2c3e50);
+}
+
+.balance-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-secondary, #6c757d);
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.balance-breakdown {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+.balance-breakdown small {
+    color: var(--text-secondary, #6c757d);
+    font-size: 0.75rem;
+}
+
+/* Backdated Leave Styling */
+.backdated-leave {
+    border-left: 4px solid #f59e0b !important;
+    background: linear-gradient(to right, #fef3c7, transparent);
+}
+
+.backdated-card {
+    border-left: 4px solid #f59e0b !important;
+    background: linear-gradient(to right, #fef3c7, white);
+}
+
+.backdated-indicator {
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+    opacity: 0.8;
+}
+
+.backdated-info {
+    margin-top: 0.25rem;
+}
+
+.backdated-text {
+    color: #f59e0b;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.backdated-warning {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.backdated-warning .warning-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    color: #92400e;
+    font-weight: 600;
+}
+
+.backdated-warning .warning-content {
+    color: #92400e;
+    font-size: 0.875rem;
+}
+
+/* Leave Tabs */
+.leave-tabs {
+    background: white;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.tab-headers {
+    display: flex;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 1rem;
+    border: none;
+    background: none;
+    font-weight: 500;
+    color: var(--text-secondary, #6c757d);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+    background: #e5e7eb;
+    color: var(--text-primary, #2c3e50);
+}
+
+.tab-btn.active {
+    background: white;
+    color: var(--primary-color, #6b1e1e);
+    border-bottom-color: var(--primary-color, #6b1e1e);
+}
+
+.tab-content {
+    display: none;
+    padding: 1.5rem;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Leave Type Badge */
+.leave-type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Leave Cards for Active Tab */
+.leave-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.leave-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    transition: all 0.3s ease;
+}
+
+.leave-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.leave-card.current-leave {
+    border-left: 4px solid #10b981;
+    background: linear-gradient(to right, #ecfdf5, white);
+}
+
+.leave-card.upcoming-leave {
+    border-left: 4px solid #3b82f6;
+    background: linear-gradient(to right, #eff6ff, white);
+}
+
+.leave-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.leave-days {
+    font-weight: 600;
+    color: var(--text-secondary, #6c757d);
+    font-size: 0.875rem;
+}
+
+.leave-card-body {
+    margin-bottom: 1rem;
+}
+
+.leave-period {
+    margin-bottom: 0.5rem;
+}
+
+.leave-reason {
+    color: var(--text-secondary, #6c757d);
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.leave-card-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Holidays Section */
+.holidays-section {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.section-header h3 {
+    margin: 0;
+    color: var(--primary-color, #6b1e1e);
+}
+
+.holidays-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.holiday-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    background: #fefefe;
+    transition: all 0.3s ease;
+}
+
+.holiday-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.holiday-date {
+    text-align: center;
+    min-width: 50px;
+}
+
+.holiday-date .day {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color, #6b1e1e);
+    line-height: 1;
+}
+
+.holiday-date .month {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #6c757d);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.holiday-info {
+    flex: 1;
+}
+
+.holiday-name {
+    font-weight: 600;
+    color: var(--text-primary, #2c3e50);
+    margin-bottom: 0.25rem;
+}
+
+.holiday-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary, #6c757d);
+    margin-bottom: 0.25rem;
+}
+
+.holiday-weekday {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #6c757d);
+    text-transform: uppercase;
+}
+
+.holiday-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* Leave Calculation */
+.leave-calculation {
+    background: #f8f9fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.calculation-header h5 {
+    margin: 0 0 0.75rem 0;
+    color: var(--primary-color, #6b1e1e);
+}
+
+.calc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+}
+
+.calc-row.total {
+    border-top: 1px solid #d1d5db;
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+}
+
+.calc-row.balance {
+    background: #ecfdf5;
+    margin: 0.5rem -1rem -1rem -1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0 0 0.75rem 0.75rem;
+}
+
+/* Calculation breakdown styles */
+.calculation-breakdown {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.calc-section {
+    margin-bottom: 2rem;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #f9fafb;
+}
+
+.calc-step {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border-left: 4px solid #3b82f6;
+    background: white;
+    border-radius: 0.25rem;
+}
+
+.calc-result {
+    padding: 1rem;
+    background: #ecfdf5;
+    border: 2px solid #10b981;
+    border-radius: 0.5rem;
+    text-align: center;
+}
+
+.debug-info {
+    background: #fef3c7;
+    border-color: #f59e0b;
+}
+
+.debug-info pre {
+    background: #fffbeb;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    overflow-x: auto;
+    font-size: 0.875rem;
+}
+
+/* Status badges for leave */
+.status-badge.status-upcoming {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.status-badge.status-current {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-badge.status-completed {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.status-badge.status-cancelled {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Leave rows */
+.leave-row.upcoming {
+    background: linear-gradient(to right, #eff6ff, transparent);
+}
+
+.leave-row.current {
+    background: linear-gradient(to right, #ecfdf5, transparent);
+}
+
+.leave-row.past {
+    opacity: 0.8;
+}
+
+/* Modal styles */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 1rem;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h4 {
+    margin: 0;
+    color: var(--primary-color, #6b1e1e);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary, #6c757d);
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+    background: #f3f4f6;
+    color: var(--text-primary, #2c3e50);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border-top: 1px solid #e5e7eb;
+    background: #f8f9fa;
+}
+
+/* Form styles for modals */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-primary, #2c3e50);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color, #6b1e1e);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-help {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--text-secondary, #6c757d);
+    font-size: 0.75rem;
+}
+
+.required {
+    color: #dc2626;
+}
+
+/* Recalculate button styling */
+.balance-card.recalculate .btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.balance-card.recalculate .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+
+.balance-card.recalculate .btn:disabled {
+    opacity: 0.6;
+    transform: none;
+    box-shadow: none;
+}
+
+.recalculate-info {
+    background: rgba(6, 182, 212, 0.1);
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    border-left: 3px solid #06b6d4;
+}
+
+/* Animation for updated cards */
+.balance-card.updated {
+    animation: balanceUpdate 0.6s ease-in-out;
+}
+
+@keyframes balanceUpdate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); box-shadow: 0 8px 25px rgba(16, 185, 129, 0.15); }
+    100% { transform: scale(1); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .balance-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .tab-headers {
+        flex-direction: column;
+    }
+    
+    .leave-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .holidays-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .holiday-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .balance-card.recalculate .btn {
+        font-size: 0.875rem;
+        padding: 0.625rem;
+    }
+}
+
+/* Button styles */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: var(--primary-color, #6b1e1e);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark, #4a1515);
+}
+
+.btn-secondary {
+    background: var(--text-secondary, #6c757d);
+    color: white;
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+}
+
+.btn-outline {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--primary-color, #6b1e1e);
+    color: var(--primary-color, #6b1e1e);
+    background: transparent;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+    background: var(--primary-color, #6b1e1e);
+    color: white;
+}
+
+.btn-info {
+    background: var(--info-color, #17a2b8);
+    color: white;
+}
+
+.btn-info:hover {
+    background: #138496;
+}
+
+.btn-danger {
+    background: var(--error-color, #dc3545);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+/* Table styles */
+.table-container {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.table-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color, #dee2e6);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-header h3 {
+    color: var(--primary-color, #6b1e1e);
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th {
+    background: var(--secondary-color, #f8f9fa);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--primary-color, #6b1e1e);
+    border-bottom: 1px solid var(--border-color, #dee2e6);
+}
+
+.data-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color, #dee2e6);
+}
+
+.data-table tbody tr:hover {
+    background: var(--secondary-color, #f8f9fa);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Empty states */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--text-secondary, #6c757d);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: #ddd;
+    margin-bottom: 1rem;
+}
+
+.empty-state h4 {
+    color: var(--text-primary, #2c3e50);
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    margin-bottom: 1.5rem;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// =============================================================================
+// LEAVE MANAGEMENT SYSTEM - JAVASCRIPT (Fixed with Safe Template Data Loading)
+// =============================================================================
+
+// Global variables
+var leaveTypes = [];
+var publicHolidays = [];
+var currentBalance = 0;
+var earliestAllowed = '';
+var maxBackdateMonths = 6;
+var employeeId = 0;
+var today = new Date();
+var todayString = today.toISOString().split('T')[0];
+var currentTab = 'all';
+
+// Load template data safely
+function loadTemplateData() {
+    try {
+        var templateDataElement = document.getElementById('template-data');
+        if (templateDataElement && templateDataElement.textContent.trim()) {
+            var templateData = JSON.parse(templateDataElement.textContent);
+            
+            // Validate and set with safe defaults
+            leaveTypes = Array.isArray(templateData.leaveTypes) ? templateData.leaveTypes : [];
+            publicHolidays = Array.isArray(templateData.publicHolidays) ? templateData.publicHolidays : [];
+            currentBalance = typeof templateData.currentBalance === 'number' ? templateData.currentBalance : 0;
+            earliestAllowed = typeof templateData.earliestAllowed === 'string' ? templateData.earliestAllowed : '';
+            maxBackdateMonths = typeof templateData.maxBackdateMonths === 'number' ? templateData.maxBackdateMonths : 6;
+            employeeId = typeof templateData.employeeId === 'number' ? templateData.employeeId : 0;
+            
+            console.log('Template data loaded successfully:', {
+                leaveTypes: leaveTypes.length,
+                publicHolidays: publicHolidays.length,
+                currentBalance: currentBalance,
+                earliestAllowed: earliestAllowed,
+                maxBackdateMonths: maxBackdateMonths,
+                employeeId: employeeId
+            });
+        } else {
+            console.warn('Template data element not found or empty');
+            setDefaultValues();
+        }
+    } catch (e) {
+        console.error('Error loading template data:', e);
+        setDefaultValues();
+    }
+}
+
+function setDefaultValues() {
+    leaveTypes = [];
+    publicHolidays = [];
+    currentBalance = 0;
+    earliestAllowed = '';
+    maxBackdateMonths = 6;
+    employeeId = 0;
+}
+
+// =============================================================================
+// MODAL FUNCTIONS
+// =============================================================================
+
+function openCreateLeaveModal() {
+    var modal = document.getElementById('createLeaveModal');
+    var startDateInput = document.getElementById('start_date');
+    
+    if (modal) modal.style.display = 'flex';
+    if (startDateInput) startDateInput.focus();
+}
+
+function closeCreateLeaveModal() {
+    var modal = document.getElementById('createLeaveModal');
+    var form = document.getElementById('createLeaveForm');
+    var backdatedWarning = document.getElementById('backdated_warning');
+    
+    if (modal) modal.style.display = 'none';
+    if (form) form.reset();
+    if (backdatedWarning) backdatedWarning.style.display = 'none';
+    hideLeaveCalculation();
+}
+
+function openPublicHolidayModal() {
+    var modal = document.getElementById('publicHolidayModal');
+    var holidayDateInput = document.getElementById('holiday_date');
+    
+    if (modal) modal.style.display = 'flex';
+    if (holidayDateInput) holidayDateInput.focus();
+}
+
+function closePublicHolidayModal() {
+    var modal = document.getElementById('publicHolidayModal');
+    var form = document.getElementById('publicHolidayForm');
+    
+    if (modal) modal.style.display = 'none';
+    if (form) form.reset();
+}
+
+function openLeaveDetailsModal() {
+    var modal = document.getElementById('leaveDetailsModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeLeaveDetailsModal() {
+    var modal = document.getElementById('leaveDetailsModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function closeCalculationModal() {
+    var modal = document.getElementById('calculationModal');
+    if (modal) modal.style.display = 'none';
+}
+
+// =============================================================================
+// TAB FUNCTIONS
+// =============================================================================
+
+function switchTab(tabName) {
+    // Update tab buttons
+    var tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    
+    var activeTabBtn = document.querySelector("button[onclick=\"switchTab('" + tabName + "')\"]");
+    if (activeTabBtn) activeTabBtn.classList.add('active');
+    
+    // Update tab content
+    var tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(function(content) {
+        content.classList.remove('active');
+    });
+    
+    var activeTabContent = document.getElementById(tabName + '-tab');
+    if (activeTabContent) activeTabContent.classList.add('active');
+    
+    currentTab = tabName;
+}
+
+// =============================================================================
+// NOTIFICATION SYSTEM
+// =============================================================================
+
+function showNotification(message, type) {
+    type = type || 'info';
+    
+    var notification = document.getElementById('notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'notification';
+        notification.style.cssText = 
+            'position: fixed;' +
+            'top: 20px;' +
+            'right: 20px;' +
+            'padding: 1rem 1.5rem;' +
+            'border-radius: 0.5rem;' +
+            'color: white;' +
+            'font-weight: 500;' +
+            'z-index: 10000;' +
+            'transform: translateX(100%);' +
+            'transition: transform 0.3s ease;' +
+            'max-width: 300px;' +
+            'box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+        document.body.appendChild(notification);
+    }
+    
+    var colors = {
+        success: '#10b981',
+        error: '#ef4444',
+        warning: '#f59e0b',
+        info: '#3b82f6'
+    };
+    
+    notification.style.backgroundColor = colors[type] || colors.info;
+    notification.textContent = message;
+    notification.style.transform = 'translateX(0)';
+    
+    setTimeout(function() {
+        notification.style.transform = 'translateX(100%)';
+    }, 4000);
+}
+
+// =============================================================================
+// BACKDATING FUNCTIONS
+// =============================================================================
+
+function checkBackdating() {
+    var startDateInput = document.getElementById('start_date');
+    var backdatedWarning = document.getElementById('backdated_warning');
+    
+    if (!startDateInput || !backdatedWarning) return;
+    
+    var startDate = new Date(startDateInput.value);
+    var isBackdated = startDate < today;
+    
+    if (isBackdated && startDateInput.value) {
+        var daysDiff = Math.ceil((today - startDate) / (1000 * 60 * 60 * 24));
+        backdatedWarning.innerHTML = 
+            '<div class="backdated-warning">' +
+                '<div class="warning-header">' +
+                    '<span>⚠️</span>' +
+                    '<span style="margin-left: 0.5rem;">Backdated Leave Request</span>' +
+                '</div>' +
+                '<div class="warning-content">' +
+                    '<p>This leave is ' + daysDiff + ' day(s) in the past. This is allowed up to ' + maxBackdateMonths + ' months back.</p>' +
+                    '<p>Backdated leave may affect attendance calculations and will be clearly marked in the system.</p>' +
+                '</div>' +
+            '</div>';
+        backdatedWarning.style.display = 'block';
+    } else {
+        backdatedWarning.style.display = 'none';
+    }
+}
+
+// =============================================================================
+// LEAVE CALCULATION FUNCTIONS
+// =============================================================================
+
+function calculateLeaveDays() {
+    var startDateInput = document.getElementById('start_date');
+    var endDateInput = document.getElementById('end_date');
+    
+    if (!startDateInput || !endDateInput) return;
+    
+    var startDate = startDateInput.value;
+    var endDate = endDateInput.value;
+    
+    if (!startDate || !endDate) {
+        hideLeaveCalculation();
+        return;
+    }
+    
+    if (new Date(endDate) < new Date(startDate)) {
+        hideLeaveCalculation();
+        showNotification('End date must be after start date', 'error');
+        return;
+    }
+    
+    if (earliestAllowed && new Date(startDate) < new Date(earliestAllowed)) {
+        hideLeaveCalculation();
+        showNotification('Start date cannot be earlier than ' + earliestAllowed, 'error');
+        return;
+    }
+    
+    var calculation = calculateWorkingDays(startDate, endDate);
+    displayLeaveCalculation(calculation);
+    validateLeaveBalance(calculation.totalLeaveDays);
+}
+
+function calculateWorkingDays(startDate, endDate) {
+    var start = new Date(startDate);
+    var end = new Date(endDate);
+    
+    var calendarDays = 0;
+    var workingDays = 0;
+    var holidaysCount = 0;
+    var current = new Date(start);
+    
+    while (current <= end) {
+        calendarDays++;
+        
+        var dayOfWeek = current.getDay();
+        if (dayOfWeek !== 0) {
+            var dateStr = current.toISOString().split('T')[0];
+            if (publicHolidays.indexOf(dateStr) !== -1) {
+                holidaysCount++;
+            } else {
+                workingDays++;
+            }
+        }
+        
+        current.setDate(current.getDate() + 1);
+    }
+    
+    return {
+        calendarDays: calendarDays,
+        workingDays: workingDays,
+        holidaysCount: holidaysCount,
+        totalLeaveDays: workingDays
+    };
+}
+
+function displayLeaveCalculation(calculation) {
+    var calendarDaysElement = document.getElementById('calendarDays');
+    var workingDaysElement = document.getElementById('workingDays');
+    var publicHolidaysElement = document.getElementById('publicHolidays');
+    var totalLeaveDaysElement = document.getElementById('totalLeaveDays');
+    var leaveCalculationElement = document.getElementById('leaveCalculation');
+    
+    if (calendarDaysElement) calendarDaysElement.textContent = calculation.calendarDays;
+    if (workingDaysElement) workingDaysElement.textContent = calculation.workingDays;
+    if (publicHolidaysElement) publicHolidaysElement.textContent = calculation.holidaysCount;
+    if (totalLeaveDaysElement) totalLeaveDaysElement.textContent = calculation.totalLeaveDays;
+    if (leaveCalculationElement) leaveCalculationElement.style.display = 'block';
+}
+
+function hideLeaveCalculation() {
+    var leaveCalculationElement = document.getElementById('leaveCalculation');
+    if (leaveCalculationElement) leaveCalculationElement.style.display = 'none';
+}
+
+function validateLeaveBalance(requestedDays) {
+    var submitBtn = document.getElementById('submitLeaveBtn');
+    if (!submitBtn) return;
+    
+    if (requestedDays > currentBalance) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Insufficient Balance';
+        submitBtn.classList.add('btn-danger');
+        submitBtn.classList.remove('btn-primary');
+        
+        showNotification('Insufficient leave balance. Requested: ' + requestedDays + ', Available: ' + currentBalance, 'error');
+    } else {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+        submitBtn.classList.add('btn-primary');
+        submitBtn.classList.remove('btn-danger');
+    }
+}
+
+// =============================================================================
+// API FUNCTIONS
+// =============================================================================
+
+async function showCalculationBreakdown() {
+    var showCalcBtn = document.getElementById('showCalculationBtn');
+    if (!showCalcBtn) {
+        console.error('Show calculation button not found');
+        return;
+    }
+    
+    var originalHTML = showCalcBtn.innerHTML;
+    
+    try {
+        showCalcBtn.disabled = true;
+        showCalcBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        
+        var response = await fetch('/leave/employee/' + employeeId + '/calculation-breakdown', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Server error: ' + response.status);
+        }
+        
+        var result = await response.json();
+        
+        if (result.success) {
+            displayCalculationBreakdown(result.data);
+            var modal = document.getElementById('calculationModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        } else {
+            throw new Error(result.message || 'Failed to load calculation');
+        }
+        
+    } catch (error) {
+        console.error('Calculation breakdown error:', error);
+        showNotification('Failed to load calculation: ' + error.message, 'error');
+    } finally {
+        showCalcBtn.disabled = false;
+        showCalcBtn.innerHTML = originalHTML;
+    }
+}
+
+function displayCalculationBreakdown(data) {
+    var content = document.getElementById('calculationContent');
+    
+    var dateDetectionInfo = (data.debug_info && data.debug_info.smart_date_detection) ? 
+        '<div class="calc-step" style="background: #f0f9ff; border-left-color: #0ea5e9;">' +
+            '<h5>📅 Smart Date Detection</h5>' +
+            '<p><strong>Hire Date from Database:</strong> ' + data.hire_date + '</p>' +
+            '<p><strong>Earliest Attendance Record:</strong> ' + (data.earliest_attendance || 'None found') + '</p>' +
+            '<p><strong>Calculation Start Date:</strong> ' + data.actual_start_date + '</p>' +
+            '<p><strong>Date Source:</strong> ' + (data.debug_info.date_source === 'attendance_records' ? 'Using attendance records (earlier than hire date)' : 'Using hire date') + '</p>' +
+            '<p><em>System automatically uses the earlier date to give you maximum leave entitlement.</em></p>' +
+        '</div>' : '';
+    
+    content.innerHTML = 
+        '<div class="calculation-breakdown">' +
+            '<h3>' + data.employee_name + '\'s Leave Calculation</h3>' +
+            
+            '<div class="calc-section">' +
+                '<h4>Basic Information</h4>' +
+                '<ul>' +
+                    '<li><strong>Employee ID:</strong> ' + data.employee_id + '</li>' +
+                    '<li><strong>Hire Date (DB):</strong> ' + data.hire_date + '</li>' +
+                    '<li><strong>Earliest Attendance:</strong> ' + (data.earliest_attendance || 'None') + '</li>' +
+                    '<li><strong>Actual Start Date:</strong> ' + data.actual_start_date + '</li>' +
+                    '<li><strong>Calculation Period:</strong> ' + data.period + '</li>' +
+                    '<li><strong>Total Attendance Records:</strong> ' + (data.debug_info && data.debug_info.total_attendance_records || 'Unknown') + '</li>' +
+                '</ul>' +
+            '</div>' +
+            
+            '<div class="calc-section">' +
+                '<h4>Step-by-Step Calculation</h4>' +
+                
+                dateDetectionInfo +
+                
+                '<div class="calc-step">' +
+                    '<h5>1. Months Worked</h5>' +
+                    '<p>From ' + data.start_calc_date + ' to ' + data.end_calc_date + ' = <strong>' + data.months_worked + ' months</strong></p>' +
+                    '<p><em>Based on actual attendance data, not just hire date</em></p>' +
+                '</div>' +
+                
+                '<div class="calc-step">' +
+                    '<h5>2. Maximum Entitlement</h5>' +
+                    '<p>Formula: <code>months_worked × 2.5 days per month</code></p>' +
+                    '<p>Calculation: ' + data.months_worked + ' × 2.5 = <strong>' + data.max_entitled_days + ' days</strong></p>' +
+                '</div>' +
+                
+                '<div class="calc-step">' +
+                    '<h5>3. Attendance-Based Calculation</h5>' +
+                    '<p>Raw attendance: ' + data.raw_attendance_percentage + '%</p>' +
+                    '<p><strong>Generous system guarantee:</strong> Minimum 75% attendance rate</p>' +
+                    '<p>Applied rate: max(' + data.raw_attendance_percentage + '%, 75%) = <strong>' + data.attendance_percentage + '%</strong></p>' +
+                    '<p>Attendance-based earned: ' + data.max_entitled_days + ' × ' + (data.attendance_percentage/100) + ' = <strong>' + data.attendance_based_days + ' days</strong></p>' +
+                '</div>' +
+                
+                '<div class="calc-step">' +
+                    '<h5>4. Generous Minimum Calculation</h5>' +
+                    '<p>The system guarantees 90% of maximum entitlement regardless of attendance</p>' +
+                    '<p>Generous minimum: ' + data.max_entitled_days + ' × 0.9 = <strong>' + data.generous_minimum_days + ' days</strong></p>' +
+                '</div>' +
+                
+                '<div class="calc-step">' +
+                    '<h5>5. Final Earned Leave</h5>' +
+                    '<p>Formula: <code>max(attendance_based, generous_minimum)</code></p>' +
+                    '<p>Calculation: max(' + data.attendance_based_days + ', ' + data.generous_minimum_days + ') = <strong>' + data.earned_days + ' days</strong></p>' +
+                '</div>' +
+                
+                '<div class="calc-step">' +
+                    '<h5>6. Used Leave</h5>' +
+                    '<p>Leave taken this year: <strong>' + data.used_days + ' days</strong></p>' +
+                '</div>' +
+                
+                '<div class="calc-result">' +
+                    '<h4>Final Result</h4>' +
+                    '<p><strong>Remaining Balance: ' + data.remaining_earned + ' days</strong></p>' +
+                '</div>' +
+            '</div>' +
+            
+            '<div class="calc-section">' +
+                '<h4>Attendance Details</h4>' +
+                '<ul>' +
+                    '<li><strong>Attendance Score:</strong> ' + data.attendance_score + ' / ' + data.total_possible_working_days + '</li>' +
+                    '<li><strong>Scoring System:</strong> Present/Late = 1.0, Half Day = 0.75, Absent = 0.5</li>' +
+                    '<li><strong>Working Days:</strong> Monday-Saturday (Sunday excluded)</li>' +
+                    '<li><strong>Public Holidays:</strong> Excluded from working days</li>' +
+                '</ul>' +
+            '</div>' +
+            
+            (data.debug_info ? 
+                '<div class="calc-section debug-info">' +
+                    '<h4>Debug Information</h4>' +
+                    '<pre>' + JSON.stringify(data.debug_info, null, 2) + '</pre>' +
+                '</div>' : '') +
+        '</div>';
+}
+
+async function recalculateLeaveBalance() {
+    var recalculateBtn = document.getElementById('recalculateBtn');
+    if (!recalculateBtn) {
+        console.error('Recalculate button not found');
+        return;
+    }
+    
+    var originalHTML = recalculateBtn.innerHTML;
+    
+    try {
+        recalculateBtn.disabled = true;
+        recalculateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recalculating...';
+        
+        showNotification('Recalculating leave balance...', 'info');
+        
+        var response = await fetch('/leave/employee/' + employeeId + '/recalculate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Server error: ' + response.status);
+        }
+        
+        var result = await response.json();
+        
+        if (result.success) {
+            updateBalanceCards(result.balance_data);
+            
+            var lastUpdatedElement = document.getElementById('lastUpdated');
+            if (lastUpdatedElement) {
+                lastUpdatedElement.textContent = new Date().toLocaleString();
+            }
+            
+            showNotification('Leave balance recalculated successfully!', 'success');
+            currentBalance = result.balance_data.remaining_earned || 0;
+        } else {
+            throw new Error(result.message || 'Recalculation failed');
+        }
+        
+    } catch (error) {
+        console.error('Recalculation error:', error);
+        showNotification('Recalculation failed: ' + error.message, 'error');
+    } finally {
+        recalculateBtn.disabled = false;
+        recalculateBtn.innerHTML = originalHTML;
+    }
+}
+
+function updateBalanceCards(balanceData) {
+    var earnedDaysElement = document.querySelector('.balance-card.earned h3');
+    var attendancePercentageElement = document.querySelector('.balance-card.earned .balance-subtitle');
+    var workingDaysElement = document.querySelector('.balance-card.earned .balance-breakdown small');
+    
+    if (earnedDaysElement) {
+        earnedDaysElement.textContent = parseFloat(balanceData.earned_days || 0).toFixed(1);
+    }
+    if (attendancePercentageElement) {
+        attendancePercentageElement.textContent = 'Based on ' + parseFloat(balanceData.attendance_percentage || 0).toFixed(1) + '% attendance (minimum 75%)';
+    }
+    if (workingDaysElement) {
+        workingDaysElement.textContent = 'Present Days: ' + (balanceData.actual_working_days || 0) + ' | Score: ' + parseFloat(balanceData.attendance_score || 0).toFixed(1) + '/' + (balanceData.total_possible_working_days || 0);
+    }
+    
+    var maxEntitledElement = document.querySelector('.balance-card.entitled h3');
+    var monthsWorkedElement = document.querySelector('.balance-card.entitled .balance-subtitle');
+    
+    if (maxEntitledElement) {
+        maxEntitledElement.textContent = parseFloat(balanceData.max_entitled_days || 0).toFixed(1);
+    }
+    if (monthsWorkedElement) {
+        monthsWorkedElement.textContent = (balanceData.months_worked || 0) + ' months × 2.5 days';
+    }
+    
+    var usedDaysElement = document.querySelector('.balance-card.used h3');
+    if (usedDaysElement) {
+        usedDaysElement.textContent = parseFloat(balanceData.used_days || 0).toFixed(1);
+    }
+    
+    var remainingElement = document.querySelector('.balance-card.remaining h3');
+    if (remainingElement) {
+        remainingElement.textContent = parseFloat(balanceData.remaining_earned || 0).toFixed(1);
+    }
+    
+    var balanceCards = document.querySelectorAll('.balance-card');
+    balanceCards.forEach(function(card) {
+        card.style.transform = 'scale(1.02)';
+        card.style.boxShadow = '0 8px 25px rgba(16, 185, 129, 0.15)';
+        setTimeout(function() {
+            card.style.transform = 'scale(1)';
+            card.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.05)';
+        }, 300);
+    });
+}
+
+async function cancelLeave(leaveId) {
+    if (!confirm('Are you sure you want to cancel this leave request?')) {
+        return;
+    }
+    
+    try {
+        var response = await fetch('/leave/cancel/' + leaveId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        var result = await response.json();
+        
+        if (result.success) {
+            showNotification('Leave cancelled successfully!', 'success');
+            setTimeout(function() {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showNotification(result.message || 'Error cancelling leave', 'error');
+        }
+    } catch (error) {
+        console.error('Error cancelling leave:', error);
+        showNotification('Network error. Please try again.', 'error');
+    }
+}
+
+async function viewLeaveDetails(leaveId) {
+    try {
+        showNotification('Leave details feature coming soon!', 'info');
+    } catch (error) {
+        console.error('Error loading leave details:', error);
+        showNotification('Error loading leave details', 'error');
+    }
+}
+
+async function deleteHoliday(holidayId) {
+    if (!confirm('Are you sure you want to delete this public holiday?')) {
+        return;
+    }
+    
+    try {
+        var response = await fetch('/leave/holidays/' + holidayId, {
+            method: 'DELETE'
+        });
+        
+        var result = await response.json();
+        
+        if (result.success) {
+            showNotification('Public holiday deleted successfully!', 'success');
+            setTimeout(function() {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showNotification(result.message || 'Error deleting holiday', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting holiday:', error);
+        showNotification('Network error. Please try again.', 'error');
+    }
+}
+
+// =============================================================================
+// FORM HANDLERS
+// =============================================================================
+
+async function handleLeaveSubmission(e) {
+    e.preventDefault();
+    
+    var formData = new FormData(e.target);
+    var submitBtn = document.getElementById('submitLeaveBtn');
+    
+    var startDate = formData.get('start_date');
+    var endDate = formData.get('end_date');
+    
+    if (new Date(endDate) < new Date(startDate)) {
+        showNotification('End date must be after start date', 'error');
+        return;
+    }
+    
+    if (earliestAllowed && new Date(startDate) < new Date(earliestAllowed)) {
+        showNotification('Start date cannot be earlier than ' + earliestAllowed + ' (' + maxBackdateMonths + ' months ago)', 'error');
+        return;
+    }
+    
+    var isBackdated = new Date(startDate) < today;
+    if (isBackdated) {
+        var confirmed = confirm('This is a backdated leave request. It will affect attendance calculations. Are you sure you want to proceed?');
+        if (!confirmed) {
+            return;
+        }
+    }
+    
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    }
+    
+    try {
+        var response = await fetch(e.target.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            var message = isBackdated ? 'Backdated leave request submitted successfully!' : 'Leave request submitted successfully!';
+            showNotification(message, 'success');
+            setTimeout(function() {
+                window.location.reload();
+            }, 1500);
+        } else {
+            var errorText = await response.text();
+            var errorData;
+            try {
+                errorData = JSON.parse(errorText);
+            } catch (e) {
+                errorData = { detail: 'Error submitting leave request' };
+            }
+            showNotification(errorData.detail || 'Error submitting leave request', 'error');
+        }
+    } catch (error) {
+        console.error('Error submitting leave:', error);
+        showNotification('Network error. Please try again.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+        }
+    }
+}
+
+async function handleHolidaySubmission(e) {
+    e.preventDefault();
+    
+    var formData = new FormData(e.target);
+    
+    try {
+        var response = await fetch(e.target.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        var result = await response.json();
+        
+        if (result.success) {
+            showNotification('Public holiday added successfully!', 'success');
+            closePublicHolidayModal();
+            setTimeout(function() {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showNotification(result.message || 'Error adding holiday', 'error');
+        }
+    } catch (error) {
+        console.error('Error adding holiday:', error);
+        showNotification('Network error. Please try again.', 'error');
+    }
+}
+
+// =============================================================================
+// INITIALIZATION
+// =============================================================================
+
+function initializeLeaveManagement() {
+    console.log('Initializing Leave Management System...');
+    
+    // Load template data first
+    loadTemplateData();
+    
+    // Set date constraints for form inputs
+    var startDateInput = document.getElementById('start_date');
+    var endDateInput = document.getElementById('end_date');
+    
+    if (startDateInput) {
+        if (earliestAllowed) {
+            startDateInput.min = earliestAllowed;
+        }
+        startDateInput.addEventListener('change', function() {
+            calculateLeaveDays();
+            checkBackdating();
+        });
+    }
+    
+    if (endDateInput) {
+        if (earliestAllowed) {
+            endDateInput.min = earliestAllowed;
+        }
+        endDateInput.addEventListener('change', calculateLeaveDays);
+    }
+    
+    var leaveTypeSelect = document.getElementById('leave_type_id');
+    if (leaveTypeSelect) {
+        leaveTypeSelect.addEventListener('change', function() {
+            // Additional validation can be added here
+        });
+    }
+    
+    // Form submission handlers
+    var createLeaveForm = document.getElementById('createLeaveForm');
+    var publicHolidayForm = document.getElementById('publicHolidayForm');
+    
+    if (createLeaveForm) {
+        createLeaveForm.addEventListener('submit', handleLeaveSubmission);
+    }
+    if (publicHolidayForm) {
+        publicHolidayForm.addEventListener('submit', handleHolidaySubmission);
+    }
+    
+    console.log('Leave Management System initialized');
+    console.log('Configuration:', {
+        earliestAllowed: earliestAllowed,
+        maxBackdateMonths: maxBackdateMonths,
+        currentBalance: currentBalance,
+        employeeId: employeeId
+    });
+}
+
+// Handle modal close on escape key and outside click
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeCreateLeaveModal();
+        closePublicHolidayModal();
+        closeLeaveDetailsModal();
+        closeCalculationModal();
+    }
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+        closeCreateLeaveModal();
+        closePublicHolidayModal();
+        closeLeaveDetailsModal();
+        closeCalculationModal();
+    }
+});
+
+// Add keyboard shortcut for recalculation
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'r' && !e.shiftKey) {
+        e.preventDefault();
+        recalculateLeaveBalance();
+    }
+});
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeLeaveManagement();
+});
+
+console.log('Leave Management System JavaScript Loaded with Backdating Support');
+
+</script>
+{% endblock %}

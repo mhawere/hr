@@ -1,0 +1,12 @@
+id,name,description,category,level,criteria,points_required,icon,is_active,created_at
+1,Perfect Month,Perfect attendance for one month,ATTENDANCE,BRONZE,100% attendance for one month,50,fas fa-calendar-check,1,2025-06-21 15:15:02
+2,Punctuality Champion,No late arrivals for 30 days,ATTENDANCE,SILVER,No late arrivals for 30 consecutive days,75,fas fa-clock,1,2025-06-21 15:15:02
+3,Attendance Superstar,Perfect attendance for 3 months,ATTENDANCE,GOLD,100% attendance for 3 consecutive months,150,fas fa-star,1,2025-06-21 15:15:02
+4,One Year Strong,Completed one year with the company,TENURE,BRONZE,365 days of employment,100,fas fa-trophy,1,2025-06-21 15:15:02
+5,Two Year Veteran,Completed two years with the company,TENURE,SILVER,730 days of employment,200,fas fa-medal,1,2025-06-21 15:15:02
+6,Five Year Legend,Completed five years with the company,TENURE,GOLD,1825 days of employment,500,fas fa-crown,1,2025-06-21 15:15:02
+7,Rising Star,Outstanding performance in first 6 months,PERFORMANCE,BRONZE,Excellent performance in first 6 months,100,fas fa-rocket,1,2025-06-21 15:15:02
+8,Excellence Award,Consistently excellent performance,PERFORMANCE,GOLD,Multiple achievements and commendations,300,fas fa-award,1,2025-06-21 15:15:02
+9,Learning Enthusiast,Completed multiple training programs,TRAINING,BRONZE,Complete 3 training programs,75,fas fa-graduation-cap,1,2025-06-21 15:15:02
+10,Team Player,Exceptional collaboration and teamwork,TEAMWORK,SILVER,Recognition for outstanding teamwork,125,fas fa-users,1,2025-06-21 15:15:02
+11,Innovator,Contributed innovative ideas or solutions,INNOVATION,GOLD,Implemented innovative solutions,250,fas fa-lightbulb,1,2025-06-21 15:15:02

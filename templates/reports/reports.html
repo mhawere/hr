@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Report Builder - {{ page_title }}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', path='/css/style.css') }}" rel="stylesheet">
+    <style>
+        .simple-report-builder {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .welcome-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .welcome-card h1 {
+            font-size: 2rem;
+            margin: 0 0 10px;
+        }
+
+        .welcome-card p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        .step-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .step-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+
+        .step-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            display: inline;
+        }
+
+        .step-content {
+            padding: 25px;
+        }
+
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .category-card {
+            border: 3px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .category-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .category-card.selected {
+            border-color: var(--primary-color);
+            background: rgba(107, 30, 30, 0.05);
+        }
+
+        .category-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        .category-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .category-description {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .template-card {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .template-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .template-card.selected {
+            border-color: var(--primary-color);
+            background: rgba(107, 30, 30, 0.05);
+        }
+
+        .template-icon {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        .template-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .template-description {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .criteria-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .criteria-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+        }
+
+        .criteria-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+        }
+
+        .filter-option {
+            padding: 8px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            font-size: 0.9rem;
+        }
+
+        .filter-option:hover {
+            border-color: var(--primary-color);
+        }
+
+        .filter-option.selected {
+            border-color: var(--primary-color);
+            background: rgba(107, 30, 30, 0.05);
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .simple-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-field.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .form-input, .form-select {
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .date-range-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .date-option {
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .date-option:hover {
+            border-color: var(--primary-color);
+        }
+
+        .date-option.selected {
+            border-color: var(--primary-color);
+            background: rgba(107, 30, 30, 0.05);
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .preview-area {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .preview-placeholder {
+            color: var(--text-secondary);
+        }
+
+        .preview-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #ddd;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .big-button {
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 160px;
+            justify-content: center;
+        }
+
+        .big-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary-big {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-success-big {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-info-big {
+            background: var(--info-color);
+            color: white;
+        }
+
+        .btn-secondary-big {
+            background: var(--text-secondary);
+            color: white;
+        }
+
+        .help-text {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #1565c0;
+        }
+
+        .help-text i {
+            margin-right: 8px;
+        }
+
+        .progress-bar {
+            background: #e9ecef;
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            background: var(--primary-color);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .custom-date-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+}
+
+.date-validation, .date-summary {
+    margin-top: 15px;
+}
+
+.custom-date-section .simple-form {
+    margin-top: 15px;
+}
+
+.date-option.custom-selected {
+    border-color: var(--info-color);
+    background: rgba(23, 162, 184, 0.05);
+    color: var(--info-color);
+}
+
+.form-input[type="date"] {
+    cursor: pointer;
+}
+
+.form-input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    padding: 5px;
+}
+
+        .department-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .dept-option {
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .dept-option:hover {
+            border-color: var(--primary-color);
+        }
+
+        .dept-option.selected {
+            border-color: var(--primary-color);
+            background: rgba(107, 30, 30, 0.05);
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .criteria-summary {
+            background: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .criteria-summary h4 {
+            color: #155724;
+            margin: 0 0 10px;
+        }
+
+        @media (max-width: 768px) {
+            .simple-form {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .big-button {
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            .category-grid, .template-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% extends "base.html" %}
+    
+    {% block content %}
+
+
+        <!-- Progress Bar -->
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar" style="width: 16.67%;"></div>
+        </div>
+
+        <!-- Step 1: Choose Report Category -->
+        <div class="step-container" id="step1">
+            <div class="step-header">
+                <span class="step-number">1</span>
+                <span class="step-title">What type of information do you need?</span>
+            </div>
+            <div class="step-content">
+                <div class="help-text">
+                    <i class="fas fa-info-circle"></i>
+                    Choose whether you want to see attendance data or staff information.
+                </div>
+                
+                <div class="category-grid">
+                    <div class="category-card" data-category="attendance" onclick="selectCategory('attendance')">
+                        <div class="category-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="category-name">Attendance Reports</div>
+                        <div class="category-description">
+                            Reports about who came to work, late arrivals, absences, and working hours
+                        </div>
+                    </div>
+                    
+                    <div class="category-card" data-category="personnel" onclick="selectCategory('personnel')">
+                        <div class="category-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="category-name">Staff Information Reports</div>
+                        <div class="category-description">
+                            Reports about employee details, demographics, contact info, and job information
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Choose Specific Report Type -->
+        <div class="step-container hidden" id="step2">
+            <div class="step-header">
+                <span class="step-number">2</span>
+                <span class="step-title" id="step2Title">What kind of report do you want?</span>
+            </div>
+            <div class="step-content">
+                <div class="help-text">
+                    <i class="fas fa-list"></i>
+                    <span id="step2Help">Choose the specific type of report you need.</span>
+                </div>
+                
+                <!-- Attendance Report Types -->
+                <div class="template-grid hidden" id="attendanceTypes">
+                    <div class="template-card" data-type="summary" onclick="selectReportType('summary')">
+                        <div class="template-icon">
+                            <i class="fas fa-chart-pie"></i>
+                        </div>
+                        <div class="template-name">Quick Summary</div>
+                        <div class="template-description">
+                            See the big picture - who came to work, who was late, and overall numbers
+                        </div>
+                    </div>
+                    
+                    <div class="template-card" data-type="detailed" onclick="selectReportType('detailed')">
+                        <div class="template-icon">
+                            <i class="fas fa-list-alt"></i>
+                        </div>
+                        <div class="template-name">Detailed List</div>
+                        <div class="template-description">
+                            See every person's attendance day by day with all the details
+                        </div>
+                    </div>
+
+                    <div class="template-card" data-type="staff-wise" onclick="selectReportType('staff-wise')">
+                        <div class="template-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div class="template-name">Staff Wise Summary</div>
+                        <div class="template-description">
+                            Individual attendance summary for each employee with statistics and performance metrics
+                        </div>
+                    </div>
+                    
+                    <div class="template-card" data-type="problems" onclick="selectReportType('problems')">
+                        <div class="template-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="template-name">Problem Report</div>
+                        <div class="template-description">
+                            Focus on issues - late arrivals, absences, and people leaving early
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Personnel Report Types -->
+                <div class="template-grid hidden" id="personnelTypes">
+                    <div class="template-card" data-type="directory" onclick="selectReportType('directory')">
+                        <div class="template-icon">
+                            <i class="fas fa-address-book"></i>
+                        </div>
+                        <div class="template-name">Employee Directory</div>
+                        <div class="template-description">
+                            Complete list of employees with contact information and job details
+                        </div>
+                    </div>
+                    
+                    <div class="template-card" data-type="demographics" onclick="selectReportType('demographics')">
+                        <div class="template-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="template-name">Demographics Report</div>
+                        <div class="template-description">
+                            Breakdown by gender, age, location, and other personal information
+                        </div>
+                    </div>
+                    
+                    <div class="template-card" data-type="organizational" onclick="selectReportType('organizational')">
+                        <div class="template-icon">
+                            <i class="fas fa-sitemap"></i>
+                        </div>
+                        <div class="template-name">Organizational Report</div>
+                        <div class="template-description">
+                            Job positions, departments, employment status, and hierarchy
+                        </div>
+                    </div>
+                    
+                    <div class="template-card" data-type="custom-staff" onclick="selectReportType('custom-staff')">
+                        <div class="template-icon">
+                            <i class="fas fa-filter"></i>
+                        </div>
+                        <div class="template-name">Custom Staff List</div>
+                        <div class="template-description">
+                            Filter employees by any criteria you choose
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Choose Time Period (Attendance) OR Choose Criteria (Personnel) -->
+        <div class="step-container hidden" id="step3">
+            <div class="step-header">
+                <span class="step-number">3</span>
+                <span class="step-title" id="step3Title">What time period do you want to see?</span>
+            </div>
+            <div class="step-content">
+                <!-- Attendance Time Period -->
+<div class="hidden" id="attendanceTimeSection">
+    <div class="help-text">
+        <i class="fas fa-calendar"></i>
+        Pick how far back you want the report to go, or choose specific dates.
+    </div>
+    
+    <div class="date-range-options">
+        <div class="date-option" data-range="this_week" onclick="selectDateRange('this_week')">
+            <strong>This Week</strong><br>
+            <small>Last 7 days</small>
+        </div>
+        <div class="date-option" data-range="this_month" onclick="selectDateRange('this_month')">
+            <strong>This Month</strong><br>
+            <small>Current month</small>
+        </div>
+        <div class="date-option selected" data-range="last_month" onclick="selectDateRange('last_month')">
+            <strong>Last Month</strong><br>
+            <small>Previous month</small>
+        </div>
+        <div class="date-option" data-range="last_3_months" onclick="selectDateRange('last_3_months')">
+            <strong>Last 3 Months</strong><br>
+            <small>Recent quarter</small>
+        </div>
+        <div class="date-option" data-range="custom" onclick="selectDateRange('custom')">
+            <strong>Custom Range</strong><br>
+            <small>Pick specific dates</small>
+        </div>
+    </div>
+
+    <!-- Custom Date Range Fields -->
+    <div class="custom-date-section hidden" id="customDateSection">
+        <div class="help-text">
+            <i class="fas fa-calendar-day"></i>
+            Choose the exact start and end dates for your report.
+        </div>
+        
+        <div class="simple-form">
+            <div class="form-field">
+                <label class="form-label">Start Date *</label>
+                <input type="date" class="form-input" id="customStartDate" onchange="updateCustomDates()">
+            </div>
+            <div class="form-field">
+                <label class="form-label">End Date *</label>
+                <input type="date" class="form-input" id="customEndDate" onchange="updateCustomDates()">
+            </div>
+        </div>
+        
+        <div class="date-validation" id="dateValidation" style="display: none;">
+            <div class="help-text" style="background: #fff3cd; border-color: #ffeaa7; color: #856404;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="dateValidationMessage">Please check your dates</span>
+            </div>
+        </div>
+        
+        <div class="date-summary" id="dateSummary" style="display: none;">
+            <div class="help-text" style="background: #e8f5e8; border-color: #c3e6cb; color: #155724;">
+                <i class="fas fa-check-circle"></i>
+                <span id="dateSummaryText">Date range is valid</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+                <!-- Personnel Criteria -->
+                <div class="hidden" id="personnelCriteriaSection">
+                    <div class="help-text">
+                        <i class="fas fa-filter"></i>
+                        Choose what information to include and how to filter the staff list.
+                    </div>
+                    
+                    <div class="criteria-grid">
+                        <!-- Gender Criteria -->
+                        <div class="criteria-section">
+                            <div class="criteria-title">
+                                <i class="fas fa-venus-mars"></i>
+                                Gender
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option selected" data-criteria="gender" data-value="all" onclick="selectCriteria('gender', 'all')">All</div>
+                                <div class="filter-option" data-criteria="gender" data-value="male" onclick="selectCriteria('gender', 'male')">Male</div>
+                                <div class="filter-option" data-criteria="gender" data-value="female" onclick="selectCriteria('gender', 'female')">Female</div>
+                            </div>
+                        </div>
+
+                        <!-- Employment Status -->
+                        <div class="criteria-section">
+                            <div class="criteria-title">
+                                <i class="fas fa-briefcase"></i>
+                                Employment Status
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option selected" data-criteria="status" data-value="all" onclick="selectCriteria('status', 'all')">All</div>
+                                <div class="filter-option" data-criteria="status" data-value="active" onclick="selectCriteria('status', 'active')">Active</div>
+                                <div class="filter-option" data-criteria="status" data-value="not_active" onclick="selectCriteria('status', 'not_active')">Inactive</div>
+                            </div>
+                        </div>
+
+                        <!-- Contract Status -->
+                        <div class="criteria-section">
+                            <div class="criteria-title">
+                                <i class="fas fa-file-contract"></i>
+                                Contract Status
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option selected" data-criteria="contract" data-value="all" onclick="selectCriteria('contract', 'all')">All</div>
+                                <div class="filter-option" data-criteria="contract" data-value="active" onclick="selectCriteria('contract', 'active')">Active</div>
+                                <div class="filter-option" data-criteria="contract" data-value="expired" onclick="selectCriteria('contract', 'expired')">Expired</div>
+                                <div class="filter-option" data-criteria="contract" data-value="suspended" onclick="selectCriteria('contract', 'suspended')">Suspended</div>
+                            </div>
+                        </div>
+
+                        <!-- Employment Type -->
+                        <div class="criteria-section">
+                            <div class="criteria-title">
+                                <i class="fas fa-clock"></i>
+                                Employment Type
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option selected" data-criteria="employment_type" data-value="all" onclick="selectCriteria('employment_type', 'all')">All</div>
+                                <div class="filter-option" data-criteria="employment_type" data-value="full_time" onclick="selectCriteria('employment_type', 'full_time')">Full Time</div>
+                                <div class="filter-option" data-criteria="employment_type" data-value="part_time" onclick="selectCriteria('employment_type', 'part_time')">Part Time</div>
+                                <div class="filter-option" data-criteria="employment_type" data-value="contract" onclick="selectCriteria('employment_type', 'contract')">Contract</div>
+                            </div>
+                        </div>
+
+                        <!-- Age Range -->
+                        <div class="criteria-section">
+                            <div class="criteria-title">
+                                <i class="fas fa-birthday-cake"></i>
+                                Age Range
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option selected" data-criteria="age" data-value="all" onclick="selectCriteria('age', 'all')">All Ages</div>
+                                <div class="filter-option" data-criteria="age" data-value="under_30" onclick="selectCriteria('age', 'under_30')">Under 30</div>
+                                <div class="filter-option" data-criteria="age" data-value="30_50" onclick="selectCriteria('age', '30_50')">30-50</div>
+                                <div class="filter-option" data-criteria="age" data-value="over_50" onclick="selectCriteria('age', 'over_50')">Over 50</div>
+                            </div>
+                        </div>
+
+                        <!-- Marital Status -->
+                        <div class="criteria-section">
+                            <div class="criteria-title">
+                                <i class="fas fa-heart"></i>
+                                Marital Status
+                            </div>
+                            <div class="filter-options">
+                                <div class="filter-option selected" data-criteria="marital" data-value="all" onclick="selectCriteria('marital', 'all')">All</div>
+                                <div class="filter-option" data-criteria="marital" data-value="single" onclick="selectCriteria('marital', 'single')">Single</div>
+                                <div class="filter-option" data-criteria="marital" data-value="married" onclick="selectCriteria('marital', 'married')">Married</div>
+                                <div class="filter-option" data-criteria="marital" data-value="divorced" onclick="selectCriteria('marital', 'divorced')">Divorced</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Date Range for Personnel (Hire Date) -->
+                    <div class="simple-form" style="margin-top: 20px;">
+                        <div class="form-field">
+                            <label class="form-label">Hired After (Optional)</label>
+                            <input type="date" class="form-input" id="hireFromDate">
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Hired Before (Optional)</label>
+                            <input type="date" class="form-input" id="hireToDate">
+                        </div>
+                    </div>
+
+                    <div class="criteria-summary" id="criteriaSummary">
+                        <h4>Selected Filters:</h4>
+                        <div id="criteriaList">All employees will be included</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Choose Departments -->
+        <div class="step-container hidden" id="step4">
+            <div class="step-header">
+                <span class="step-number">4</span>
+                <span class="step-title">Which departments do you want to include?</span>
+            </div>
+            <div class="step-content">
+                <div class="help-text">
+                    <i class="fas fa-building"></i>
+                    You can include all departments or pick specific ones.
+                </div>
+                
+                <div class="department-selector" id="departmentSelector">
+                    <div class="dept-option selected" data-dept="all" onclick="selectDepartment('all')">
+                        <i class="fas fa-globe"></i><br>
+                        <strong>All Departments</strong>
+                    </div>
+                    <!-- Departments will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 5: Name Your Report -->
+        <div class="step-container hidden" id="step5">
+            <div class="step-header">
+                <span class="step-number">5</span>
+                <span class="step-title">Give your report a name</span>
+            </div>
+            <div class="step-content">
+                <div class="help-text">
+                    <i class="fas fa-tag"></i>
+                    Choose a name that will help you remember what this report is about.
+                </div>
+                
+                <div class="simple-form">
+                    <div class="form-field full-width">
+                        <label class="form-label">Report Name</label>
+                        <input type="text" class="form-input" id="reportName" placeholder="e.g., Monthly Attendance Report - December 2024">
+                    </div>
+                </div>
+                
+                <!-- Preview -->
+                <div class="preview-area" id="previewArea">
+                    <div class="preview-placeholder">
+                        <i class="fas fa-file-alt"></i>
+                        <h3>Report Preview</h3>
+                        <p>Your report will include:</p>
+                        <div id="previewText">Select options above to see preview</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="big-button btn-secondary-big" id="backBtn" onclick="goBack()" style="display: none;">
+                <i class="fas fa-arrow-left"></i> Go Back
+            </button>
+            
+            <button class="big-button btn-primary-big" id="nextBtn" onclick="nextStep()" style="display: none;">
+                Next Step <i class="fas fa-arrow-right"></i>
+            </button>
+            
+            <button class="big-button btn-success-big" id="createBtn" onclick="createReport()" style="display: none;">
+                <i class="fas fa-download"></i> Create PDF Report
+            </button>
+            
+            <button class="big-button btn-info-big" id="excelBtn" onclick="createExcelReport()" style="display: none;">
+                <i class="fas fa-file-excel"></i> Create Excel Report
+            </button>
+        </div>
+    </div>
+
+    <script>
+    // Global state
+    let currentStep = 1;
+    let reportConfig = {
+        category: '', // 'attendance' or 'personnel'
+        type: '',
+        dateRange: 'last_month',
+        customStartDate: '',
+        customEndDate: '',
+        departments: ['all'],
+        name: '',
+        criteria: {
+            gender: 'all',
+            status: 'all',
+            contract: 'all',
+            employment_type: 'all',
+            age: 'all',
+            marital: 'all'
+        },
+        hireDateRange: {
+            from: '',
+            to: ''
+        }
+    };
+    let departments = [];
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDepartments();
+        updateButtons();
+        setupCriteriaListeners();
+        hideCustomDateSection();
+        
+        // Set up date change listeners
+        const customStartDate = document.getElementById('customStartDate');
+        const customEndDate = document.getElementById('customEndDate');
+        if (customStartDate) customStartDate.addEventListener('change', updateCustomDates);
+        if (customEndDate) customEndDate.addEventListener('change', updateCustomDates);
+    });
+
+    // Step navigation
+    function nextStep() {
+        if (currentStep < 5) {
+            document.getElementById(`step${currentStep}`).classList.add('hidden');
+            currentStep++;
+            document.getElementById(`step${currentStep}`).classList.remove('hidden');
+            updateProgress();
+            updateButtons();
+            
+            if (currentStep === 5) {
+                updatePreview();
+                generateReportName();
+            }
+        }
+    }
+
+    function goBack() {
+        if (currentStep > 1) {
+            document.getElementById(`step${currentStep}`).classList.add('hidden');
+            currentStep--;
+            document.getElementById(`step${currentStep}`).classList.remove('hidden');
+            updateProgress();
+            updateButtons();
+        }
+    }
+
+    function updateButtons() {
+        const backBtn = document.getElementById('backBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const createBtn = document.getElementById('createBtn');
+        const excelBtn = document.getElementById('excelBtn');
+
+        // Hide all buttons first
+        backBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        createBtn.style.display = 'none';
+        excelBtn.style.display = 'none';
+
+        if (currentStep === 1) {
+            if (reportConfig.category) {
+                nextBtn.style.display = 'flex';
+            }
+        } else if (currentStep === 5) {
+            backBtn.style.display = 'flex';
+            createBtn.style.display = 'flex';
+            excelBtn.style.display = 'flex';
+        } else {
+            backBtn.style.display = 'flex';
+            
+            // Check if we can proceed to next step
+            let canProceed = false;
+            
+            if (currentStep === 2 && reportConfig.type) {
+                canProceed = true;
+            } else if (currentStep === 3) {
+                // For attendance reports, check if custom dates are valid
+                if (reportConfig.category === 'attendance') {
+                    if (reportConfig.dateRange === 'custom') {
+                        canProceed = validateCustomDates(); // This validates and returns true/false
+                    } else {
+                        canProceed = true;
+                    }
+                } else {
+                    canProceed = true; // Personnel reports don't need date validation here
+                }
+            } else if (currentStep > 3) {
+                canProceed = true;
+            }
+            
+            if (canProceed) {
+                nextBtn.style.display = 'flex';
+            }
+        }
+    }
+
+    function updateProgress() {
+        const progress = (currentStep / 5) * 100;
+        document.getElementById('progressBar').style.width = progress + '%';
+    }
+
+    // Category selection
+    function selectCategory(category) {
+        // Remove previous selection
+        document.querySelectorAll('[data-category]').forEach(card => {
+            card.classList.remove('selected');
+        });
+        
+        // Add selection to clicked card
+        document.querySelector(`[data-category="${category}"]`).classList.add('selected');
+        
+        reportConfig.category = category;
+        updateButtons();
+    }
+
+    // Report type selection
+    function selectReportType(type) {
+        // Remove previous selection
+        document.querySelectorAll('[data-type]').forEach(card => {
+            card.classList.remove('selected');
+        });
+        
+        // Add selection to clicked card
+        document.querySelector(`[data-type="${type}"]`).classList.add('selected');
+        
+        reportConfig.type = type;
+        
+        // Update step 3 based on category
+        if (reportConfig.category === 'attendance') {
+            document.getElementById('step3Title').textContent = 'What time period do you want to see?';
+            document.getElementById('attendanceTimeSection').classList.remove('hidden');
+            document.getElementById('personnelCriteriaSection').classList.add('hidden');
+        } else {
+            document.getElementById('step3Title').textContent = 'What criteria do you want to apply?';
+            document.getElementById('attendanceTimeSection').classList.add('hidden');
+            document.getElementById('personnelCriteriaSection').classList.remove('hidden');
+        }
+        
+        updateButtons();
+    }
+
+    // Date range selection
+    function selectDateRange(range) {
+        // Remove previous selection
+        document.querySelectorAll('[data-range]').forEach(option => {
+            option.classList.remove('selected');
+            option.classList.remove('custom-selected');
+        });
+        
+        // Add selection to clicked option
+        const selectedOption = document.querySelector(`[data-range="${range}"]`);
+        if (range === 'custom') {
+            selectedOption.classList.add('custom-selected');
+            showCustomDateSection();
+        } else {
+            selectedOption.classList.add('selected');
+            hideCustomDateSection();
+            // Clear custom dates when switching away from custom
+            reportConfig.customStartDate = '';
+            reportConfig.customEndDate = '';
+        }
+        
+        reportConfig.dateRange = range;
+        updateButtons(); // Update buttons based on selection
+    }
+
+    // Show/hide custom date section
+    function showCustomDateSection() {
+        const customSection = document.getElementById('customDateSection');
+        if (customSection) {
+            customSection.classList.remove('hidden');
+            
+            // Set default dates (last month) if not already set
+            if (!reportConfig.customStartDate || !reportConfig.customEndDate) {
+                const today = new Date();
+                const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                
+                const startDateInput = document.getElementById('customStartDate');
+                const endDateInput = document.getElementById('customEndDate');
+                
+                if (startDateInput && endDateInput) {
+                    startDateInput.value = formatDateForInput(lastMonth);
+                    endDateInput.value = formatDateForInput(lastDayOfLastMonth);
+                    
+                    reportConfig.customStartDate = formatDateForInput(lastMonth);
+                    reportConfig.customEndDate = formatDateForInput(lastDayOfLastMonth);
+                    
+                    updateCustomDates(); // Validate the default dates
+                }
+            }
+        }
+    }
+
+    function hideCustomDateSection() {
+        const customSection = document.getElementById('customDateSection');
+        const dateValidation = document.getElementById('dateValidation');
+        const dateSummary = document.getElementById('dateSummary');
+        
+        if (customSection) customSection.classList.add('hidden');
+        if (dateValidation) dateValidation.style.display = 'none';
+        if (dateSummary) dateSummary.style.display = 'none';
+    }
+
+    // Handle custom date changes
+    function updateCustomDates() {
+        const startDateInput = document.getElementById('customStartDate');
+        const endDateInput = document.getElementById('customEndDate');
+        
+        if (!startDateInput || !endDateInput) return false;
+        
+        const startDate = startDateInput.value;
+        const endDate = endDateInput.value;
+        
+        reportConfig.customStartDate = startDate;
+        reportConfig.customEndDate = endDate;
+        
+        return validateCustomDates();
+    }
+
+    function validateCustomDates() {
+        const startDate = reportConfig.customStartDate;
+        const endDate = reportConfig.customEndDate;
+        
+        // Validate dates
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const today = new Date();
+            
+            // Clear any previous validation
+            const dateValidation = document.getElementById('dateValidation');
+            const dateSummary = document.getElementById('dateSummary');
+            
+            if (dateValidation) dateValidation.style.display = 'none';
+            if (dateSummary) dateSummary.style.display = 'none';
+            
+            // Validation checks
+            if (start > end) {
+                showDateValidation('Start date must be before end date');
+                return false;
+            }
+            
+            if (start > today) {
+                showDateValidation('Start date cannot be in the future');
+                return false;
+            }
+            
+            if (end > today) {
+                showDateValidation('End date cannot be in the future');
+                return false;
+            }
+            
+            // Check if range is too large (more than 1 year)
+            const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+            if (daysDiff > 365) {
+                showDateValidation('Date range cannot exceed 1 year');
+                return false;
+            }
+            
+            // Dates are valid
+            showDateSummary(start, end, daysDiff);
+            return true;
+        }
+        
+        return false;
+    }
+
+    function showDateValidation(message) {
+        const dateValidationMessage = document.getElementById('dateValidationMessage');
+        const dateValidation = document.getElementById('dateValidation');
+        const dateSummary = document.getElementById('dateSummary');
+        
+        if (dateValidationMessage) dateValidationMessage.textContent = message;
+        if (dateValidation) dateValidation.style.display = 'block';
+        if (dateSummary) dateSummary.style.display = 'none';
+    }
+
+    function showDateSummary(startDate, endDate, daysDiff) {
+        const startFormatted = startDate.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+        const endFormatted = endDate.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+        
+        const dateSummaryText = document.getElementById('dateSummaryText');
+        const dateSummary = document.getElementById('dateSummary');
+        const dateValidation = document.getElementById('dateValidation');
+        
+        if (dateSummaryText) {
+            dateSummaryText.textContent = `Report will cover ${daysDiff + 1} days from ${startFormatted} to ${endFormatted}`;
+        }
+        if (dateSummary) dateSummary.style.display = 'block';
+        if (dateValidation) dateValidation.style.display = 'none';
+    }
+
+    function formatDateForInput(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    // Criteria selection
+    function selectCriteria(criteriaType, value) {
+        // Remove previous selection for this criteria type
+        document.querySelectorAll(`[data-criteria="${criteriaType}"]`).forEach(option => {
+            option.classList.remove('selected');
+        });
+        
+        // Add selection to clicked option
+        document.querySelector(`[data-criteria="${criteriaType}"][data-value="${value}"]`).classList.add('selected');
+        
+        reportConfig.criteria[criteriaType] = value;
+        updateCriteriaSummary();
+    }
+
+    function updateCriteriaSummary() {
+        const criteria = reportConfig.criteria;
+        const activeFilters = [];
+        
+        for (const [key, value] of Object.entries(criteria)) {
+            if (value !== 'all') {
+                const labels = {
+                    gender: 'Gender',
+                    status: 'Employment Status', 
+                    contract: 'Contract Status',
+                    employment_type: 'Employment Type',
+                    age: 'Age Range',
+                    marital: 'Marital Status'
+                };
+                activeFilters.push(`${labels[key]}: ${value.replace('_', ' ')}`);
+            }
+        }
+        
+        const hireFromInput = document.getElementById('hireFromDate');
+        const hireToInput = document.getElementById('hireToDate');
+        
+        const hireFrom = hireFromInput ? hireFromInput.value : '';
+        const hireTo = hireToInput ? hireToInput.value : '';
+        
+        if (hireFrom) activeFilters.push(`Hired after: ${hireFrom}`);
+        if (hireTo) activeFilters.push(`Hired before: ${hireTo}`);
+        
+        const criteriaList = document.getElementById('criteriaList');
+        if (criteriaList) {
+            if (activeFilters.length === 0) {
+                criteriaList.textContent = 'All employees will be included';
+            } else {
+                criteriaList.innerHTML = '<ul>' + activeFilters.map(filter => `<li>${filter}</li>`).join('') + '</ul>';
+            }
+        }
+    }
+
+    function setupCriteriaListeners() {
+        const hireFromInput = document.getElementById('hireFromDate');
+        const hireToInput = document.getElementById('hireToDate');
+        
+        if (hireFromInput) {
+            hireFromInput.addEventListener('change', function() {
+                reportConfig.hireDateRange.from = this.value;
+                updateCriteriaSummary();
+            });
+        }
+        
+        if (hireToInput) {
+            hireToInput.addEventListener('change', function() {
+                reportConfig.hireDateRange.to = this.value;
+                updateCriteriaSummary();
+            });
+        }
+    }
+
+    // Department selection
+    function selectDepartment(deptId) {
+        if (deptId === 'all') {
+            // Select all, deselect others
+            document.querySelectorAll('[data-dept]').forEach(option => {
+                option.classList.remove('selected');
+            });
+            document.querySelector('[data-dept="all"]').classList.add('selected');
+            reportConfig.departments = ['all'];
+        } else {
+            // Deselect "all" if specific department is selected
+            document.querySelector('[data-dept="all"]').classList.remove('selected');
+            
+            const deptOption = document.querySelector(`[data-dept="${deptId}"]`);
+            deptOption.classList.toggle('selected');
+            
+            // Update selected departments
+            const selected = Array.from(document.querySelectorAll('[data-dept].selected:not([data-dept="all"])'))
+                .map(el => el.dataset.dept);
+            
+            if (selected.length === 0) {
+                // If nothing selected, select all
+                document.querySelector('[data-dept="all"]').classList.add('selected');
+                reportConfig.departments = ['all'];
+            } else {
+                reportConfig.departments = selected;
+            }
+        }
+    }
+
+    // Load departments from API
+    async function loadDepartments() {
+        try {
+            const response = await fetch('/reports/api/departments');
+            departments = await response.json();
+            
+            const selector = document.getElementById('departmentSelector');
+            
+            if (selector) {
+                departments.forEach(dept => {
+                    const deptOption = document.createElement('div');
+                    deptOption.className = 'dept-option';
+                    deptOption.dataset.dept = dept.id;
+                    deptOption.onclick = () => selectDepartment(dept.id);
+                    deptOption.innerHTML = `
+                        <i class="fas fa-building"></i><br>
+                        <strong>${dept.name}</strong><br>
+                        <small>${dept.employee_count} employees</small>
+                    `;
+                    selector.appendChild(deptOption);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading departments:', error);
+        }
+    }
+
+    // Show appropriate report types based on category
+    document.addEventListener('DOMContentLoaded', function() {
+        // Override nextStep for step 1 to show correct report types
+        const originalNextStep = nextStep;
+        
+        function customNextStep() {
+            if (currentStep === 1) {
+                // Show appropriate report types
+                if (reportConfig.category === 'attendance') {
+                    const attendanceTypes = document.getElementById('attendanceTypes');
+                    const personnelTypes = document.getElementById('personnelTypes');
+                    const step2Help = document.getElementById('step2Help');
+                    
+                    if (attendanceTypes) attendanceTypes.classList.remove('hidden');
+                    if (personnelTypes) personnelTypes.classList.add('hidden');
+                    if (step2Help) step2Help.textContent = 'Choose the type of attendance report you need.';
+                } else {
+                    const attendanceTypes = document.getElementById('attendanceTypes');
+                    const personnelTypes = document.getElementById('personnelTypes');
+                    const step2Help = document.getElementById('step2Help');
+                    
+                    if (attendanceTypes) attendanceTypes.classList.add('hidden');
+                    if (personnelTypes) personnelTypes.classList.remove('hidden');
+                    if (step2Help) step2Help.textContent = 'Choose the type of staff information report you need.';
+                }
+            }
+            originalNextStep();
+        }
+        
+        // Replace the nextStep function
+        window.nextStep = customNextStep;
+    });
+
+    // Generate automatic report name
+    function generateReportName() {
+        let typeName = '';
+        
+        if (reportConfig.category === 'attendance') {
+            const typeNames = {
+                'summary': 'Attendance Summary Report',
+                'detailed': 'Detailed Attendance Report', 
+                'problems': 'Attendance Problem Report',
+                'staff-wise': 'Staff Wise Attendance Summary'
+            };
+            typeName = typeNames[reportConfig.type] || 'Attendance Report';
+            
+            if (reportConfig.dateRange === 'custom') {
+                const startDate = new Date(reportConfig.customStartDate);
+                const endDate = new Date(reportConfig.customEndDate);
+                const startFormatted = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const endFormatted = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                typeName += ` - ${startFormatted} to ${endFormatted}`;
+            } else {
+                const dateNames = {
+                    'this_week': 'This Week',
+                    'this_month': 'This Month',
+                    'last_month': 'Last Month',
+                    'last_3_months': 'Last 3 Months'
+                };
+                const dateName = dateNames[reportConfig.dateRange] || 'Custom Period';
+                typeName += ` - ${dateName}`;
+            }
+        } else {
+            const typeNames = {
+                'directory': 'Employee Directory',
+                'demographics': 'Demographics Report',
+                'organizational': 'Organizational Report',
+                'custom-staff': 'Custom Staff Report'
+            };
+            typeName = typeNames[reportConfig.type] || 'Staff Report';
+        }
+        
+        const currentDate = new Date().toLocaleDateString();
+        const autoName = `${typeName} (Generated ${currentDate})`;
+        
+        const reportNameInput = document.getElementById('reportName');
+        if (reportNameInput) {
+            reportNameInput.value = autoName;
+            reportConfig.name = autoName;
+        }
+    }
+
+    // Update preview
+    function updatePreview() {
+        let preview = '';
+        
+        if (reportConfig.category === 'attendance') {
+            const typeDescriptions = {
+                'summary': 'Overall attendance statistics, attendance rates, and key metrics',
+                'detailed': 'Individual employee records with check-in/out times and hours worked',
+                'problems': 'Late arrivals, absences, early departures, and attendance issues',
+                'staff-wise': 'Individual attendance summary and performance metrics for each employee'
+            };
+            
+            let timePeriodText = '';
+            if (reportConfig.dateRange === 'custom') {
+                const startDate = new Date(reportConfig.customStartDate);
+                const endDate = new Date(reportConfig.customEndDate);
+                const startFormatted = startDate.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                const endFormatted = endDate.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                timePeriodText = `${startFormatted} to ${endFormatted}`;
+            } else {
+                timePeriodText = reportConfig.dateRange.replace('_', ' ');
+            }
+            
+            const deptText = reportConfig.departments.includes('all') ? 
+                'All departments' : 
+                `${reportConfig.departments.length} selected department(s)`;
+            
+            preview = `
+                <ul style="text-align: left; display: inline-block;">
+                    <li><strong>Report Type:</strong> ${typeDescriptions[reportConfig.type]}</li>
+                    <li><strong>Time Period:</strong> ${timePeriodText}</li>
+                    <li><strong>Departments:</strong> ${deptText}</li>
+                </ul>
+            `;
+        } else {
+            const typeDescriptions = {
+                'directory': 'Complete employee contact and job information',
+                'demographics': 'Breakdown by gender, age, marital status, and location',
+                'organizational': 'Job positions, departments, and employment details',
+                'custom-staff': 'Filtered employee list based on your selected criteria'
+            };
+            
+            const activeFilters = Object.entries(reportConfig.criteria)
+                .filter(([key, value]) => value !== 'all')
+                .map(([key, value]) => `${key}: ${value}`);
+            
+            const deptText = reportConfig.departments.includes('all') ? 
+                'All departments' : 
+                `${reportConfig.departments.length} selected department(s)`;
+            
+            preview = `
+                <ul style="text-align: left; display: inline-block;">
+                    <li><strong>Report Type:</strong> ${typeDescriptions[reportConfig.type]}</li>
+                    <li><strong>Departments:</strong> ${deptText}</li>
+                    <li><strong>Filters:</strong> ${activeFilters.length > 0 ? activeFilters.join(', ') : 'None'}</li>
+                </ul>
+            `;
+        }
+        
+        const previewText = document.getElementById('previewText');
+        if (previewText) {
+            previewText.innerHTML = preview;
+        }
+    }
+
+    // Create reports
+    async function createReport() {
+        const reportNameInput = document.getElementById('reportName');
+        const name = reportNameInput ? reportNameInput.value.trim() : '';
+        
+        if (!name) {
+            alert('Please enter a name for your report');
+            return;
+        }
+        
+        reportConfig.name = name;
+        
+        try {
+            // Convert simple config to detailed format
+            const detailedConfig = convertToDetailedConfig(reportConfig);
+            
+            const response = await fetch('/reports/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(detailedConfig)
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } else {
+                throw new Error('Failed to generate report');
+            }
+        } catch (error) {
+            alert('Error creating report: ' + error.message);
+        }
+    }
+
+    async function createExcelReport() {
+        const reportNameInput = document.getElementById('reportName');
+        const name = reportNameInput ? reportNameInput.value.trim() : '';
+        
+        if (!name) {
+            alert('Please enter a name for your report');
+            return;
+        }
+        
+        reportConfig.name = name;
+        
+        try {
+            const detailedConfig = convertToDetailedConfig(reportConfig);
+            
+            const response = await fetch('/reports/export-excel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(detailedConfig)
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${name.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } else {
+                throw new Error('Failed to generate Excel report');
+            }
+        } catch (error) {
+            alert('Error creating Excel report: ' + error.message);
+        }
+    }
+
+    // Convert simple config to detailed format for API
+    function convertToDetailedConfig(config) {
+        const components = [];
+        
+        // Always add header
+        components.push({
+            id: 'header_1',
+            type: 'header',
+            title: 'Report Header',
+            config: {
+                title: config.name,
+                showLogo: true,
+                showDate: true
+            }
+        });
+        
+        if (config.category === 'attendance') {
+            if (config.type === 'summary') {
+                components.push({
+                    id: 'summary_1',
+                    type: 'summary-stats',
+                    title: 'Summary Statistics',
+                    config: { showCharts: true }
+                });
+                
+                components.push({
+                    id: 'dept_1',
+                    type: 'department-summary',
+                    title: 'Department Summary',
+                    config: { sortBy: 'name' }
+                });
+                
+            } else if (config.type === 'detailed') {
+                components.push({
+                    id: 'summary_1',
+                    type: 'summary-stats',
+                    title: 'Summary Statistics',
+                    config: { showCharts: true }
+                });
+                
+                components.push({
+                    id: 'records_1',
+                    type: 'individual-records',
+                    title: 'Individual Attendance Records',
+                    config: { limit: 1000, showAllFields: true }
+                });
+                
+            } else if (config.type === 'staff-wise') {
+                components.push({
+                    id: 'summary_1',
+                    type: 'summary-stats',
+                    title: 'Overall Summary Statistics',
+                    config: { showCharts: true }
+                });
+                
+                components.push({
+                    id: 'staff_wise_1',
+                    type: 'staff-wise-summary',
+                    title: 'Staff Wise Attendance Summary',
+                    config: { 
+                        sortBy: 'name',
+                        showPerformanceIndicators: true,
+                        includeAverages: true
+                    }
+                });
+                
+            } else if (config.type === 'problems') {
+                components.push({
+                    id: 'late_1',
+                    type: 'late-arrivals',
+                    title: 'Late Arrivals',
+                    config: { threshold: 15, showDetails: true }
+                });
+                
+                components.push({
+                    id: 'absent_1',
+                    type: 'absent-employees',
+                    title: 'Absent Employees',
+                    config: {}
+                });
+                
+                components.push({
+                    id: 'early_1',
+                    type: 'early-departures',
+                    title: 'Early Departures',
+                    config: {}
+                });
+            }
+        } else {
+            // Personnel reports
+            components.push({
+                id: 'personnel_1',
+                type: 'personnel-list',
+                title: getPersonnelReportTitle(config.type),
+                config: {
+                    reportType: config.type,
+                    criteria: config.criteria,
+                    hireDateRange: config.hireDateRange
+                }
+            });
+        }
+        
+        // Build filters object with custom date support
+        const filters = {
+            departments: config.departments,
+            status: 'all',
+            personnelCriteria: config.criteria,
+            hireDateRange: config.hireDateRange
+        };
+        
+        // Add date range information
+        if (config.dateRange === 'custom') {
+            filters.dateRange = 'custom';
+            filters.startDate = config.customStartDate;
+            filters.endDate = config.customEndDate;
+        } else {
+            filters.dateRange = config.dateRange;
+        }
+        
+        return {
+            title: config.name,
+            description: `Auto-generated ${config.category} report`,
+            type: config.type,
+            components: components,
+            filters: filters
+        };
+    }
+
+    function getPersonnelReportTitle(type) {
+        const titles = {
+            'directory': 'Employee Directory',
+            'demographics': 'Demographics Analysis',
+            'organizational': 'Organizational Structure',
+            'custom-staff': 'Custom Staff List'
+        };
+        return titles[type] || 'Personnel Report';
+    }
+
+    // Update report name when user types
+    document.addEventListener('DOMContentLoaded', function() {
+        const reportNameInput = document.getElementById('reportName');
+        if (reportNameInput) {
+            reportNameInput.addEventListener('input', function() {
+                reportConfig.name = this.value;
+            });
+        }
+    });
+</script>
+    
+    {% endblock %}
+</body>
+</html>

@@ -1,0 +1,626 @@
+{% extends "base.html" %}
+
+{% block title %}Login - HR Management System{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo-container">
+                <img src="{{ url_for('static', path='/images/logo.png') }}" alt="HR Management System" class="logo">
+            </div>
+            <h2>HR Management System</h2>
+            <p>Welcome back! Please sign in to continue</p>
+        </div>
+        
+        <!-- Add message and error handling here -->
+        {% if message %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            <span>{{ message }}</span>
+        </div>
+        {% endif %}
+        
+        {% if error %}
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+        
+        <form method="post" class="login-form" action="/auth/login">
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-user"></i>
+                    Username
+                </label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="Enter your username"
+                       value="{{ username if username else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-lock"></i>
+                    Password
+                </label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Enter your password">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-full">
+                <i class="fas fa-sign-in-alt"></i>
+                Sign In
+            </button>
+        </form>
+        
+        <div class="login-footer">
+            <div class="demo-info">
+                <i class="fas fa-info-circle"></i>
+                <span id="date-time"></span>
+
+<script>
+  function updateDateTime() {
+    const now = new Date();
+    const formatted = now.toLocaleString(); // Example: 6/19/2025, 7:15:00 PM
+    document.getElementById("date-time").textContent = formatted;
+  }
+
+  updateDateTime(); // initial call
+  setInterval(updateDateTime, 1000); // updates every second
+</script>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Reset and base styles for login page */
+body.login-page {
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent any scrolling */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Full screen login container - no scrolling */
+.login-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(8px, 2vw, 15px);
+    box-sizing: border-box;
+    z-index: 1000;
+    
+    /* Responsive background image */
+    background: url("{{ url_for('static', path='/images/bg.jpg') }}");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    
+    /* Responsive background overlay */
+    background-blend-mode: overlay;
+    background-color: rgba(248, 245, 240, 0.7);
+}
+
+/* Compact responsive login card - no scrolling */
+.login-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: clamp(8px, 1.5vw, 12px);
+    padding: clamp(15px, 3vw, 25px);
+    width: 100%;
+    max-width: min(380px, calc(100vw - 20px));
+    min-width: 260px;
+    box-shadow: 
+        0 15px 30px rgba(0, 0, 0, 0.1), 
+        0 6px 24px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+    animation: slideUp 0.6s ease-out;
+    
+    /* Ensure card fits viewport - no scrolling */
+    max-height: calc(100vh - 20px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Compact responsive header */
+.login-header {
+    text-align: center;
+    margin-bottom: clamp(12px, 2.5vw, 18px);
+    flex-shrink: 0;
+}
+
+.logo-container {
+    margin-bottom: clamp(8px, 1.5vw, 12px);
+}
+
+.logo {
+    height: clamp(35px, 6vw, 50px);
+    width: auto;
+    max-width: min(160px, 70vw);
+    object-fit: contain;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.1));
+}
+
+.login-header h2 {
+    color: #722F37;
+    font-size: clamp(16px, 3.5vw, 22px);
+    font-weight: 700;
+    margin: 0 0 clamp(4px, 1vw, 6px) 0;
+    line-height: 1.2;
+}
+
+.login-header p {
+    color: #666;
+    font-size: clamp(12px, 2.5vw, 14px);
+    margin: 0;
+    font-weight: 400;
+    line-height: 1.3;
+}
+
+/* Compact responsive alert styles */
+.alert {
+    padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 14px);
+    margin-bottom: clamp(10px, 2vw, 12px);
+    border-radius: clamp(6px, 1vw, 8px);
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(6px, 1.5vw, 8px);
+    font-size: clamp(11px, 2vw, 12px);
+    font-weight: 500;
+    animation: alertSlide 0.4s ease-out;
+    line-height: 1.3;
+    flex-shrink: 0;
+}
+
+@keyframes alertSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+    box-shadow: 0 1px 4px rgba(21, 101, 192, 0.1);
+}
+
+.alert-info i {
+    color: #1976d2;
+    font-size: clamp(12px, 2.5vw, 14px);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.alert-error {
+    background: linear-gradient(135deg, #ffebee, #fce4ec);
+    color: #c62828;
+    border: 1px solid #ffcdd2;
+    box-shadow: 0 1px 4px rgba(198, 40, 40, 0.1);
+}
+
+.alert-error i {
+    color: #d32f2f;
+    font-size: clamp(12px, 2.5vw, 14px);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Compact responsive form */
+.login-form {
+    margin-bottom: clamp(10px, 2vw, 14px);
+    flex-shrink: 0;
+}
+
+.form-group {
+    margin-bottom: clamp(12px, 2.5vw, 16px);
+}
+
+.form-group label {
+    display: block;
+    color: #722F37;
+    font-weight: 600;
+    margin-bottom: clamp(4px, 1vw, 6px);
+    font-size: clamp(11px, 2vw, 12px);
+}
+
+.form-group label i {
+    margin-right: clamp(4px, 1vw, 6px);
+    color: #A0282C;
+    width: clamp(12px, 2.5vw, 14px);
+}
+
+.form-group input {
+    width: 100%;
+    padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
+    border: 2px solid #e5e5e5;
+    border-radius: clamp(6px, 1.5vw, 8px);
+    font-size: clamp(14px, 2.5vw, 15px);
+    transition: all 0.3s ease;
+    background: #ffffff;
+    box-sizing: border-box;
+    color: #333;
+    
+    /* Compact touch targets */
+    min-height: clamp(36px, 8vw, 42px);
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #A0282C;
+    box-shadow: 0 0 0 2px rgba(160, 40, 44, 0.1);
+}
+
+.form-group input::placeholder {
+    color: #999;
+    font-weight: 400;
+    font-size: clamp(13px, 2.5vw, 14px);
+}
+
+/* Compact responsive button */
+.btn {
+    border: none;
+    border-radius: clamp(6px, 1.5vw, 8px);
+    padding: clamp(10px, 2.5vw, 12px) clamp(20px, 4vw, 24px);
+    font-size: clamp(13px, 2.5vw, 14px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(4px, 1vw, 6px);
+    
+    /* Compact touch targets */
+    min-height: clamp(40px, 8vw, 44px);
+}
+
+.btn-primary {
+    background: #722F37;
+    color: white;
+    box-shadow: 0 2px 6px rgba(114, 47, 55, 0.2);
+}
+
+.btn-primary:hover {
+    background: #5D1A1D;
+    box-shadow: 0 3px 8px rgba(114, 47, 55, 0.3);
+    transform: translateY(-1px);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(114, 47, 55, 0.2);
+}
+
+.btn-full {
+    width: 100%;
+}
+
+/* Compact responsive footer */
+.login-footer {
+    text-align: center;
+    padding-top: clamp(10px, 2vw, 14px);
+    border-top: 1px solid #e5e5e5;
+    flex-shrink: 0;
+}
+
+.demo-info {
+    background: #f8f9fa;
+    padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 14px);
+    border-radius: clamp(4px, 1vw, 6px);
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(6px, 1.5vw, 8px);
+    color: #666;
+    font-size: clamp(10px, 2vw, 11px);
+    border: 1px solid #e5e5e5;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.demo-info i {
+    color: #A0282C;
+    font-size: clamp(11px, 2.5vw, 12px);
+    flex-shrink: 0;
+}
+
+.demo-info strong {
+    color: #722F37;
+}
+
+/* Enhanced responsive breakpoints - more aggressive sizing */
+@media (max-width: 768px) {
+    .login-container {
+        background-attachment: scroll;
+        padding: 10px;
+    }
+    
+    .login-card {
+        margin: 0;
+        max-width: calc(100vw - 20px);
+        padding: 20px 16px;
+    }
+    
+    .alert {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        padding: 8px 12px;
+    }
+    
+    .demo-info {
+        flex-direction: column;
+        text-align: center;
+        gap: 4px;
+        padding: 8px 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-container {
+        padding: 8px;
+    }
+    
+    .login-card {
+        width: calc(100vw - 16px);
+        padding: 16px 12px;
+        border-radius: 8px;
+        max-height: calc(100vh - 16px);
+    }
+    
+    .logo {
+        height: 35px;
+    }
+    
+    .login-header {
+        margin-bottom: 12px;
+    }
+    
+    .login-header h2 {
+        font-size: 18px;
+        margin-bottom: 4px;
+    }
+    
+    .login-header p {
+        font-size: 12px;
+    }
+    
+    .form-group {
+        margin-bottom: 12px;
+    }
+    
+    .form-group input {
+        padding: 10px 12px;
+        font-size: 15px; /* Prevent zoom on iOS */
+        min-height: 40px;
+    }
+    
+    .btn {
+        font-size: 14px;
+        padding: 10px 20px;
+        min-height: 42px;
+    }
+    
+    .alert {
+        font-size: 11px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+    }
+}
+
+@media (max-width: 320px) {
+    .login-card {
+        padding: 12px 8px;
+        width: calc(100vw - 16px);
+    }
+    
+    .logo {
+        height: 30px;
+    }
+    
+    .login-header h2 {
+        font-size: 16px;
+    }
+    
+    .login-header p {
+        font-size: 11px;
+    }
+    
+    .form-group input {
+        padding: 8px 10px;
+        min-height: 36px;
+    }
+    
+    .btn {
+        padding: 8px 16px;
+        min-height: 38px;
+        font-size: 13px;
+    }
+}
+
+/* Landscape mobile optimization - very compact */
+@media (max-height: 600px) and (orientation: landscape) {
+    .login-container {
+        padding: 5px;
+    }
+    
+    .login-card {
+        margin: 0;
+        padding: 12px;
+        max-height: calc(100vh - 10px);
+    }
+    
+    .logo {
+        height: 25px;
+    }
+    
+    .login-header {
+        margin-bottom: 8px;
+    }
+    
+    .login-header h2 {
+        font-size: 16px;
+        margin-bottom: 2px;
+    }
+    
+    .login-header p {
+        font-size: 11px;
+    }
+    
+    .form-group {
+        margin-bottom: 8px;
+    }
+    
+    .form-group input {
+        padding: 6px 10px;
+        min-height: 32px;
+    }
+    
+    .btn {
+        padding: 6px 16px;
+        min-height: 34px;
+        font-size: 12px;
+    }
+    
+    .alert {
+        padding: 6px 8px;
+        margin-bottom: 6px;
+        font-size: 10px;
+    }
+    
+    .demo-info {
+        padding: 6px 8px;
+        font-size: 9px;
+    }
+    
+    .login-footer {
+        padding-top: 8px;
+    }
+}
+
+/* Extra short screens */
+@media (max-height: 480px) {
+    .login-header p {
+        display: none; /* Hide subtitle on very short screens */
+    }
+    
+    .demo-info {
+        display: none; /* Hide demo info on very short screens */
+    }
+    
+    .login-footer {
+        display: none;
+    }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .login-card {
+        border: 0.5px solid rgba(255, 255, 255, 0.3);
+    }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    .login-card,
+    .alert,
+    .form-group,
+    .btn {
+        animation: none;
+        transition: none;
+    }
+}
+
+/* Simple fade-in animations with faster timing */
+.form-group {
+    animation: fadeIn 0.4s ease-out backwards;
+}
+
+.form-group:nth-child(1) { animation-delay: 0.05s; }
+.form-group:nth-child(2) { animation-delay: 0.1s; }
+.btn { animation: fadeIn 0.4s ease-out 0.15s backwards; }
+.login-footer { animation: fadeIn 0.4s ease-out 0.2s backwards; }
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Ensure login page takes full screen */
+.no-sidebar .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+}
+
+/* Focus styles for accessibility */
+.form-group input:focus,
+.btn:focus {
+    outline: 2px solid #A0282C;
+    outline-offset: 1px;
+}
+</style>
+
+<script>
+// Add login-page class to body for full screen styling
+document.body.classList.add('login-page');
+
+// Remove the class when leaving the page
+window.addEventListener('beforeunload', function() {
+    document.body.classList.remove('login-page');
+});
+
+// Auto-hide success messages after 4 seconds (faster)
+document.addEventListener('DOMContentLoaded', function() {
+    const infoAlerts = document.querySelectorAll('.alert-info');
+    infoAlerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-8px)';
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.remove();
+                }
+            }, 400);
+        }, 4000);
+    });
+});
+</script>
+{% endblock %}

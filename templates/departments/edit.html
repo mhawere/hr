@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container">
+    <div class="form-card modern">
+        <div class="form-header">
+            <h2><i class="fas fa-edit"></i> Edit Department</h2>
+            <p>Update department information and settings</p>
+        </div>
+        
+        <form method="post" class="department-form">
+            <div class="form-section">
+                <h3>Department Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="name">Department Name</label>
+                        <input type="text" id="name" name="name" value="{{ department.name }}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="code">Department Code</label>
+                        <input type="text" id="code" name="code" value="{{ department.code }}" required maxlength="10" style="text-transform: uppercase;">
+                        <small>Used for generating employee IDs (e.g., HR, IT, FIN)</small>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" rows="3">{{ department.description or '' }}</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="manager_id">Department Manager</label>
+                        <select id="manager_id" name="manager_id">
+                            <option value="">Select Manager (Optional)</option>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}" {% if department.manager_id == employee.id %}selected{% endif %}>
+                                {{ employee.first_name }} {{ employee.last_name }} - {{ employee.employee_id }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="is_active" name="is_active" value="true" {% if department.is_active %}checked{% endif %}>
+                            <label for="is_active" class="checkbox-label">
+                                <span class="checkbox-custom"></span>
+                                Active Department
+                            </label>
+                        </div>
+                        <small>Inactive departments won't appear in employee forms</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Update Department
+                </button>
+                <a href="/departments/" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancel
+                </a>
+                <button type="button" onclick="toggleDepartmentStatus({{ department.id }})" class="btn btn-warning">
+                    <i class="fas fa-toggle-{% if department.is_active %}on{% else %}off{% endif %}"></i>
+                    {% if department.is_active %}Deactivate{% else %}Activate{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Convert code to uppercase
+document.getElementById('code').addEventListener('input', function() {
+    this.value = this.value.toUpperCase();
+});
+
+function toggleDepartmentStatus(deptId) {
+    if (confirm('Are you sure you want to change the department status?')) {
+        fetch(`/departments/toggle/${deptId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Error updating department status');
+            }
+        }).catch(error => {
+            alert('Error updating department status');
+        });
+    }
+}
+</script>
+{% endblock %}

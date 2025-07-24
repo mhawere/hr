@@ -1,0 +1,1618 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container full-width">
+    <div class="form-card">
+        {% if error %}
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            {{ error }}
+        </div>
+        
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="employee-form" id="employeeForm">
+            <div class="form-section">
+                <h3><i class="fas fa-user"></i> Basic Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="first_name">First Name <span class="required">*</span></label>
+                        <input type="text" id="first_name" name="first_name" required 
+                               value="{{ form_data.first_name if form_data else '' }}"
+                               minlength="2" maxlength="50">
+                        <div class="field-hint">Enter the employee's first name</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="last_name">Last Name <span class="required">*</span></label>
+                        <input type="text" id="last_name" name="last_name" required 
+                               value="{{ form_data.last_name if form_data else '' }}"
+                               minlength="2" maxlength="50">
+                        <div class="field-hint">Enter the employee's last name</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email Address <span class="required">*</span></label>
+                        <input type="email" id="email" name="email" required 
+                               value="{{ form_data.email if form_data else '' }}">
+                        <div class="field-hint">This will be used for system access</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone" 
+                               value="{{ form_data.phone if form_data else '' }}">
+                        <div class="field-hint">Include country code if international</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="biometric_id">
+                            <i class="fas fa-fingerprint"></i>
+                            Biometric ID
+                        </label>
+                        <input type="text" id="biometric_id" name="biometric_id" 
+                            value="{{ form_data.biometric_id if form_data else '' }}"
+                            pattern="[A-Za-z0-9]{3,20}" 
+                            title="Alphanumeric only, 3-20 characters"
+                            maxlength="20"
+                            placeholder="Enter biometric device ID">
+                        <div class="field-hint">
+                            <i class="fas fa-info-circle"></i>
+                            Unique biometric ID for device mapping (optional)
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="photo">Employee Photo</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="photo" name="photo" accept="image/*" class="file-input">
+                            <div class="file-input-display">
+                                <i class="fas fa-camera"></i>
+                                <span class="file-text">Choose photo...</span>
+                            </div>
+                        </div>
+                        <div class="field-hint">
+                            <i class="fas fa-info-circle"></i>
+                            Supported: JPG, PNG, GIF, WebP (max 5MB)
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="department_id">Department <span class="required">*</span></label>
+                        <select id="department_id" name="department_id" required>
+                            <option value="">Select Department</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}" 
+                                    {% if form_data and form_data.department_id == dept.id %}selected{% endif %}>
+                                {{ dept.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="field-hint">
+                            <i class="fas fa-info-circle"></i>
+                            Employee ID will be auto-generated based on department
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="position">Position/Job Title <span class="required">*</span></label>
+                        <input type="text" id="position" name="position" required 
+                               value="{{ form_data.position if form_data else '' }}"
+                               minlength="2">
+                        <div class="field-hint">Enter the employee's job title</div>
+                    </div>
+                    
+                    <!-- NEW: Shift Assignment -->
+                    <div class="form-group">
+                        <label for="shift_id">
+                            <i class="fas fa-clock"></i>
+                            Shift Assignment
+                        </label>
+                        <select id="shift_id" name="shift_id">
+                            <option value="">No Shift Assigned</option>
+                            {% for shift in shifts %}
+                            <option value="{{ shift.id }}" 
+                                    {% if form_data and form_data.shift_id == shift.id %}selected{% endif %}>
+                                {{ shift.name }} 
+                                {% if shift.shift_type == 'standard' %}
+                                    ({{ shift.weekday_start.strftime('%H:%M') if shift.weekday_start else 'N/A' }} - 
+                                     {{ shift.weekday_end.strftime('%H:%M') if shift.weekday_end else 'N/A' }})
+                                {% else %}
+                                    (Dynamic Schedule)
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="field-hint">
+                            <i class="fas fa-info-circle"></i>
+                            Assign employee to a work shift (optional)
+                            {% if not shifts %}
+                            <br><small class="text-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                No shifts available. <a href="/attendance/shift-manager" target="_blank">Create shifts first</a>
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="status">Employment Status <span class="required">*</span></label>
+                        <select id="status" name="status" required>
+                            {% for status in status_options %}
+                            <option value="{{ status }}" 
+                                    {% if form_data and form_data.status == status %}selected{% endif %}>
+                                {{ status.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="field-hint">Current employment status</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contract_status">Contract Status <span class="required">*</span></label>
+                        <select id="contract_status" name="contract_status" required>
+                            {% for status in contract_status_options %}
+                            <option value="{{ status }}" 
+                                    {% if form_data and form_data.contract_status == status %}selected{% endif %}>
+                                {{ status.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="field-hint">Type of contract agreement</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3><i class="fas fa-id-card"></i> Personal Details</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="date_of_birth">Date of Birth</label>
+                        <input type="date" id="date_of_birth" name="date_of_birth" 
+                               value="{{ form_data.date_of_birth if form_data else '' }}">
+                        <div class="field-hint">Employee's date of birth</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="gender">Gender</label>
+                        <select id="gender" name="gender">
+                            <option value="">Select Gender</option>
+                            <option value="Male" {% if form_data and form_data.gender == 'Male' %}selected{% endif %}>Male</option>
+                            <option value="Female" {% if form_data and form_data.gender == 'Female' %}selected{% endif %}>Female</option>
+                        </select>
+                        <div class="field-hint">Employee's gender</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nationality">Nationality</label>
+                        <select id="nationality" name="nationality" onchange="toggleIdFields()">
+                            <option value="">Select Nationality</option>
+                            <option value="Ugandan" {% if form_data and form_data.nationality == 'Ugandan' %}selected{% endif %}>Ugandan</option>
+                            <option value="Kenyan" {% if form_data and form_data.nationality == 'Kenyan' %}selected{% endif %}>Kenyan</option>
+                            <option value="Tanzanian" {% if form_data and form_data.nationality == 'Tanzanian' %}selected{% endif %}>Tanzanian</option>
+                            <option value="Rwandan" {% if form_data and form_data.nationality == 'Rwandan' %}selected{% endif %}>Rwandan</option>
+                            <option value="Burundian" {% if form_data and form_data.nationality == 'Burundian' %}selected{% endif %}>Burundian</option>
+                            <option value="South Sudanese" {% if form_data and form_data.nationality == 'South Sudanese' %}selected{% endif %}>South Sudanese</option>
+                            <option value="Other" {% if form_data and form_data.nationality == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                        <div class="field-hint">Employee's nationality</div>
+                    </div>
+                    
+                    <div class="form-group" id="national_id_group" style="display: none;">
+                        <label for="national_id_number">National Identity Card Number</label>
+                        <input type="text" id="national_id_number" name="national_id_number" 
+                               value="{{ form_data.national_id_number if form_data else '' }}"
+                               placeholder="Enter NIN">
+                        <div class="field-hint">For Ugandan nationals only</div>
+                    </div>
+                    
+                    <div class="form-group" id="passport_group" style="display: none;">
+                        <label for="passport_number">Passport Number</label>
+                        <input type="text" id="passport_number" name="passport_number" 
+                               value="{{ form_data.passport_number if form_data else '' }}"
+                               placeholder="Enter passport number">
+                        <div class="field-hint">For non-Ugandan nationals</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="marital_status">Marital Status</label>
+                        <select id="marital_status" name="marital_status">
+                            <option value="">Select Marital Status</option>
+                            <option value="Single" {% if form_data and form_data.marital_status == 'Single' %}selected{% endif %}>Single</option>
+                            <option value="Married" {% if form_data and form_data.marital_status == 'Married' %}selected{% endif %}>Married</option>
+                            <option value="Divorced" {% if form_data and form_data.marital_status == 'Divorced' %}selected{% endif %}>Divorced</option>
+                            <option value="Widowed" {% if form_data and form_data.marital_status == 'Widowed' %}selected{% endif %}>Widowed</option>
+                            <option value="Separated" {% if form_data and form_data.marital_status == 'Separated' %}selected{% endif %}>Separated</option>
+                        </select>
+                        <div class="field-hint">Employee's marital status</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="religion">Religion</label>
+                        <select id="religion" name="religion">
+                            <option value="">Select Religion</option>
+                            <option value="Christianity" {% if form_data and form_data.religion == 'Christianity' %}selected{% endif %}>Christianity</option>
+                            <option value="Islam" {% if form_data and form_data.religion == 'Islam' %}selected{% endif %}>Islam</option>
+                            <option value="Hindu" {% if form_data and form_data.religion == 'Hindu' %}selected{% endif %}>Hindu</option>
+                            <option value="Buddhism" {% if form_data and form_data.religion == 'Buddhism' %}selected{% endif %}>Buddhism</option>
+                            <option value="Judaism" {% if form_data and form_data.religion == 'Judaism' %}selected{% endif %}>Judaism</option>
+                            <option value="Other" {% if form_data and form_data.religion == 'Other' %}selected{% endif %}>Other</option>
+                            <option value="None" {% if form_data and form_data.religion == 'None' %}selected{% endif %}>None/Not Specified</option>
+                        </select>
+                        <div class="field-hint">Employee's religion</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="blood_group">Blood Group</label>
+                        <select id="blood_group" name="blood_group">
+                            <option value="">Select Blood Group</option>
+                            <option value="A+" {% if form_data and form_data.blood_group == 'A+' %}selected{% endif %}>A+</option>
+                            <option value="A-" {% if form_data and form_data.blood_group == 'A-' %}selected{% endif %}>A-</option>
+                            <option value="B+" {% if form_data and form_data.blood_group == 'B+' %}selected{% endif %}>B+</option>
+                            <option value="B-" {% if form_data and form_data.blood_group == 'B-' %}selected{% endif %}>B-</option>
+                            <option value="AB+" {% if form_data and form_data.blood_group == 'AB+' %}selected{% endif %}>AB+</option>
+                            <option value="AB-" {% if form_data and form_data.blood_group == 'AB-' %}selected{% endif %}>AB-</option>
+                            <option value="O+" {% if form_data and form_data.blood_group == 'O+' %}selected{% endif %}>O+</option>
+                            <option value="O-" {% if form_data and form_data.blood_group == 'O-' %}selected{% endif %}>O-</option>
+                        </select>
+                        <div class="field-hint">Employee's blood group</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3><i class="fas fa-file-invoice"></i> Tax & Employment Details</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tin_number">TIN Number</label>
+                        <input type="text" id="tin_number" name="tin_number" 
+                               value="{{ form_data.tin_number if form_data else '' }}"
+                               placeholder="Enter TIN number">
+                        <div class="field-hint">Tax Identification Number</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nssf_number">NSSF Number</label>
+                        <input type="text" id="nssf_number" name="nssf_number" 
+                               value="{{ form_data.nssf_number if form_data else '' }}"
+                               placeholder="Enter NSSF number">
+                        <div class="field-hint">National Social Security Fund Number</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="start_of_employment">Start of Employment</label>
+                        <input type="date" id="start_of_employment" name="start_of_employment" 
+                               value="{{ form_data.start_of_employment if form_data else '' }}">
+                        <div class="field-hint">Employee's start date</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="end_of_employment">End of Employment</label>
+                        <input type="date" id="end_of_employment" name="end_of_employment" 
+                               value="{{ form_data.end_of_employment if form_data else '' }}">
+                        <div class="field-hint">Employee's end date (if applicable)</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="employment_type">Type of Employment</label>
+                        <select id="employment_type" name="employment_type">
+                            <option value="">Select Employment Type</option>
+                            <option value="Full Time" {% if form_data and form_data.employment_type == 'Full Time' %}selected{% endif %}>Full Time</option>
+                            <option value="Part Time" {% if form_data and form_data.employment_type == 'Part Time' %}selected{% endif %}>Part Time</option>
+                            <option value="Contract" {% if form_data and form_data.employment_type == 'Contract' %}selected{% endif %}>Contract</option>
+                            <option value="Internship" {% if form_data and form_data.employment_type == 'Internship' %}selected{% endif %}>Internship</option>
+                        </select>
+                        <div class="field-hint">Type of employment contract</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3><i class="fas fa-university"></i> Bank Details</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="bank_name">Bank Name</label>
+                        <select id="bank_name" name="bank_name">
+                            <option value="">Select Bank</option>
+                            <option value="Centenary Bank" {% if form_data and form_data.bank_name == 'Centenary Bank' %}selected{% endif %}>Centenary Bank</option>
+                            <option value="Stanbic Bank" {% if form_data and form_data.bank_name == 'Stanbic Bank' %}selected{% endif %}>Stanbic Bank</option>
+                            <option value="Bank of Uganda" {% if form_data and form_data.bank_name == 'Bank of Uganda' %}selected{% endif %}>Bank of Uganda</option>
+                            <option value="DFCU Bank" {% if form_data and form_data.bank_name == 'DFCU Bank' %}selected{% endif %}>DFCU Bank</option>
+                            <option value="Equity Bank" {% if form_data and form_data.bank_name == 'Equity Bank' %}selected{% endif %}>Equity Bank</option>
+                            <option value="Housing Finance Bank" {% if form_data and form_data.bank_name == 'Housing Finance Bank' %}selected{% endif %}>Housing Finance Bank</option>
+                            <option value="KCB Bank" {% if form_data and form_data.bank_name == 'KCB Bank' %}selected{% endif %}>KCB Bank</option>
+                            <option value="PostBank Uganda" {% if form_data and form_data.bank_name == 'PostBank Uganda' %}selected{% endif %}>PostBank Uganda</option>
+                            <option value="Other" {% if form_data and form_data.bank_name == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                        <div class="field-hint">Employee's bank</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="branch_name">Branch Name</label>
+                        <input type="text" id="branch_name" name="branch_name" 
+                               value="{{ form_data.branch_name if form_data else '' }}"
+                               placeholder="Enter branch name">
+                        <div class="field-hint">Bank branch name</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="account_title">Account Title</label>
+                        <input type="text" id="account_title" name="account_title" 
+                               value="{{ form_data.account_title if form_data else '' }}"
+                               placeholder="Enter account holder name">
+                        <div class="field-hint">Name on the bank account</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="account_number">Account Number</label>
+                        <input type="text" id="account_number" name="account_number" 
+                               value="{{ form_data.account_number if form_data else '' }}"
+                               placeholder="Enter account number">
+                        <div class="field-hint">Bank account number</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3><i class="fas fa-graduation-cap"></i> Education Details</h3>
+                <div class="education-container" id="educationContainer">
+                    <div class="education-entry" data-index="0">
+                        <div class="education-header">
+                            <h4>Education #1</h4>
+                            <button type="button" class="btn-remove-education" onclick="removeEducation(0)" style="display: none;">
+                                <i class="fas fa-trash"></i> Remove
+                            </button>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="education_level_0">Highest Level of Education</label>
+                                <select id="education_level_0" name="education_level_0">
+                                    <option value="">Select Education Level</option>
+                                    <option value="high_school">High School</option>
+                                    <option value="diploma">Diploma/Certificate</option>
+                                    <option value="associate">Associate Degree</option>
+                                    <option value="bachelor">Bachelor's Degree</option>
+                                    <option value="master">Master's Degree</option>
+                                    <option value="doctorate">Doctorate/PhD</option>
+                                    <option value="professional">Professional Degree</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                <div class="field-hint">Select the highest level of education completed</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="institution_name_0">Institution Name</label>
+                                <input type="text" id="institution_name_0" name="institution_name_0" 
+                                       placeholder="e.g., University of Cambridge">
+                                <div class="field-hint">Name of the educational institution</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="field_of_study_0">Field of Study / Major</label>
+                                <input type="text" id="field_of_study_0" name="field_of_study_0" 
+                                       placeholder="e.g., Computer Science">
+                                <div class="field-hint">Area of study or major field</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="degree_title_0">Degree Title</label>
+                                <input type="text" id="degree_title_0" name="degree_title_0" 
+                                       placeholder="e.g., Bachelor of Science in Computer Science">
+                                <div class="field-hint">Full title of the degree or certificate</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="graduation_year_0">Graduation Year</label>
+                                <input type="number" id="graduation_year_0" name="graduation_year_0" 
+                                       min="1950" max="2030" placeholder="e.g., 2020">
+                                <div class="field-hint">Year of graduation or completion</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="gpa_grade_0">GPA / Grade</label>
+                                <input type="text" id="gpa_grade_0" name="gpa_grade_0" 
+                                       placeholder="e.g., 3.8/4.0 or First Class">
+                                <div class="field-hint">GPA, grade, or classification (optional)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="education-actions">
+                    <button type="button" class="btn btn-outline" id="addEducationBtn" onclick="addEducation()">
+                        <i class="fas fa-plus"></i> Add Another Education
+                    </button>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3><i class="fas fa-info-circle"></i> Additional Information</h3>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="address">Address</label>
+                        <textarea id="address" name="address" rows="3" 
+                                  placeholder="Enter full address including city and postal code">{{ form_data.address if form_data else '' }}</textarea>
+                        <div class="field-hint">Complete residential or mailing address</div>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label for="emergency_contact">Emergency Contact</label>
+                        <input type="text" id="emergency_contact" name="emergency_contact" 
+                               value="{{ form_data.emergency_contact if form_data else '' }}"
+                               placeholder="Name and phone number of emergency contact">
+                        <div class="field-hint">Person to contact in case of emergency</div>
+                    </div>
+                </div>
+            </div>
+
+            {% if custom_fields %}
+            <div class="form-section">
+                <h3><i class="fas fa-cogs"></i> Custom Fields</h3>
+                <div class="form-grid">
+                    {% for field in custom_fields %}
+                    <div class="form-group {% if field.field_type == 'document' %}document-field{% endif %}">
+                        <label for="custom_{{ field.field_name }}">
+                            {% if field.field_type == 'document' %}
+                                <i class="fas fa-file-pdf"></i>
+                            {% endif %}
+                            {{ field.field_label }}
+                            {% if field.is_required %}<span class="required">*</span>{% endif %}
+                        </label>
+                        
+                        {% if field.field_type == 'text' %}
+                            <input type="text" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                   {% if field.is_required %}required{% endif %}
+                                   value="{{ form_data['custom_' + field.field_name] if form_data and ('custom_' + field.field_name) in form_data else '' }}">
+                                   
+                        {% elif field.field_type == 'number' %}
+                            <input type="number" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                   {% if field.is_required %}required{% endif %}
+                                   value="{{ form_data['custom_' + field.field_name] if form_data and ('custom_' + field.field_name) in form_data else '' }}">
+                                   
+                        {% elif field.field_type == 'date' %}
+                            <input type="date" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                   {% if field.is_required %}required{% endif %}
+                                   value="{{ form_data['custom_' + field.field_name] if form_data and ('custom_' + field.field_name) in form_data else '' }}">
+                                   
+                        {% elif field.field_type == 'select' %}
+                            <select id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                    {% if field.is_required %}required{% endif %}>
+                                <option value="">Select...</option>
+                                {% if field.field_options %}
+                                    {% for option in field.field_options.split(',') %}
+                                    <option value="{{ option.strip() }}" 
+                                            {% if form_data and form_data.get('custom_' + field.field_name) == option.strip() %}selected{% endif %}>
+                                        {{ option.strip() }}
+                                    </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            
+                        {% elif field.field_type == 'boolean' %}
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                       value="true" class="checkbox-input"
+                                       {% if form_data and form_data.get('custom_' + field.field_name) == 'true' %}checked{% endif %}>
+                                <label for="custom_{{ field.field_name }}" class="checkbox-label">
+                                    <span class="checkbox-custom"></span>
+                                    <span class="checkbox-text">Yes / Enable</span>
+                                </label>
+                            </div>
+                            
+                        {% elif field.field_type == 'document' %}
+                            <div class="file-input-wrapper document-upload">
+                                <input type="file" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                       accept=".pdf" class="file-input document-input"
+                                       {% if field.is_required %}required{% endif %}>
+                                <div class="file-input-display document-display">
+                                    <i class="fas fa-file-pdf"></i>
+                                    <span class="file-text">Choose PDF file...</span>
+                                    <span class="file-size-display"></span>
+                                </div>
+                                <div class="upload-progress" style="display: none;">
+                                    <div class="progress-bar"></div>
+                                </div>
+                            </div>
+                            <div class="field-hint document-hint">
+                                <i class="fas fa-info-circle"></i>
+                                PDF files only, maximum 10MB
+                                <br><small>Examples: contracts, certificates, identification documents</small>
+                            </div>
+                        {% endif %}
+                        
+                        {% if field.field_type != 'document' and field.field_type != 'boolean' %}
+                        <div class="field-hint">{{ field.field_label }} information</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-submit" id="submitBtn">
+                    <span class="btn-text">
+                        <i class="fas fa-save"></i> Add Employee
+                    </span>
+                    <span class="btn-loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> Adding...
+                    </span>
+                </button>
+                <a href="/staff/view" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancel
+                </a>
+                <button type="reset" class="btn btn-outline" id="resetBtn">
+                    <i class="fas fa-undo"></i> Reset Form
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+        </div>
+        <p>Adding employee...</p>
+        <small>Please wait while we process the information</small>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('employeeForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    // Education management variables
+    let educationIndex = 1; // Start from 1 since we have index 0 by default
+    
+    // Nationality-based ID field toggle function (add window. prefix)
+    window.toggleIdFields = function() {
+        const nationality = document.getElementById('nationality').value;
+        const nationalIdGroup = document.getElementById('national_id_group');
+        const passportGroup = document.getElementById('passport_group');
+        
+        if (nationality === 'Ugandan') {
+            nationalIdGroup.style.display = 'block';
+            passportGroup.style.display = 'none';
+            document.getElementById('passport_number').value = '';
+        } else if (nationality && nationality !== 'Ugandan') {
+            nationalIdGroup.style.display = 'none';
+            passportGroup.style.display = 'block';
+            document.getElementById('national_id_number').value = '';
+        } else {
+            nationalIdGroup.style.display = 'none';
+            passportGroup.style.display = 'none';
+            document.getElementById('national_id_number').value = '';
+            document.getElementById('passport_number').value = '';
+        }
+    };
+
+    // Initialize nationality fields on page load
+    toggleIdFields();
+    
+    // File input handling for regular photo upload
+    const photoInput = document.getElementById('photo');
+    if (photoInput) {
+        setupFileInput(photoInput, {
+            maxSize: 5 * 1024 * 1024, // 5MB
+            allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+            allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+        });
+    }
+    
+    // Setup document file inputs
+    const documentInputs = document.querySelectorAll('.document-input');
+    documentInputs.forEach(input => {
+        setupFileInput(input, {
+            maxSize: 10 * 1024 * 1024, // 10MB
+            allowedTypes: ['application/pdf'],
+            allowedExtensions: ['.pdf'],
+            isDocument: true
+        });
+    });
+    
+    // Initialize education section
+    updateRemoveButtons();
+    
+    // Form submission handling
+    form.addEventListener('submit', function(e) {
+        if (!validateForm()) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Show loading state
+        showLoading();
+        
+        // Disable submit button to prevent double submission
+        submitBtn.disabled = true;
+        submitBtn.querySelector('.btn-text').style.display = 'none';
+        submitBtn.querySelector('.btn-loading').style.display = 'inline-flex';
+    });
+    
+    // Reset form
+    resetBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to reset the form? All entered data will be lost.')) {
+            form.reset();
+            
+            // Reset file inputs
+            document.querySelectorAll('.file-input').forEach(input => {
+                const wrapper = input.closest('.file-input-wrapper');
+                const textSpan = wrapper.querySelector('.file-text');
+                const sizeSpan = wrapper.querySelector('.file-size-display');
+                
+                textSpan.textContent = input.classList.contains('document-input') ? 'Choose PDF file...' : 'Choose photo...';
+                if (sizeSpan) sizeSpan.textContent = '';
+                
+                wrapper.classList.remove('has-file', 'error');
+            });
+            
+            // Reset education section to single entry
+            resetEducationSection();
+            
+            // Reset nationality fields
+            toggleIdFields();
+        }
+    });
+    
+    // Education Management Functions
+    window.addEducation = function() {
+        const container = document.getElementById('educationContainer');
+        const newEducationHTML = `
+            <div class="education-entry" data-index="${educationIndex}">
+                <div class="education-header">
+                    <h4>Education #${educationIndex + 1}</h4>
+                    <button type="button" class="btn-remove-education" onclick="removeEducation(${educationIndex})">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="education_level_${educationIndex}">Highest Level of Education</label>
+                        <select id="education_level_${educationIndex}" name="education_level_${educationIndex}">
+                            <option value="">Select Education Level</option>
+                            <option value="high_school">High School</option>
+                            <option value="diploma">Diploma/Certificate</option>
+                            <option value="associate">Associate Degree</option>
+                            <option value="bachelor">Bachelor's Degree</option>
+                            <option value="master">Master's Degree</option>
+                            <option value="doctorate">Doctorate/PhD</option>
+                            <option value="professional">Professional Degree</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <div class="field-hint">Select the highest level of education completed</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="institution_name_${educationIndex}">Institution Name</label>
+                        <input type="text" id="institution_name_${educationIndex}" name="institution_name_${educationIndex}" 
+                               placeholder="e.g., University of Cambridge">
+                        <div class="field-hint">Name of the educational institution</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="field_of_study_${educationIndex}">Field of Study / Major</label>
+                        <input type="text" id="field_of_study_${educationIndex}" name="field_of_study_${educationIndex}" 
+                               placeholder="e.g., Computer Science">
+                        <div class="field-hint">Area of study or major field</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="degree_title_${educationIndex}">Degree Title</label>
+                        <input type="text" id="degree_title_${educationIndex}" name="degree_title_${educationIndex}" 
+                               placeholder="e.g., Bachelor of Science in Computer Science">
+                        <div class="field-hint">Full title of the degree or certificate</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="graduation_year_${educationIndex}">Graduation Year</label>
+                        <input type="number" id="graduation_year_${educationIndex}" name="graduation_year_${educationIndex}" 
+                               min="1950" max="2030" placeholder="e.g., 2020">
+                        <div class="field-hint">Year of graduation or completion</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="gpa_grade_${educationIndex}">GPA / Grade</label>
+                        <input type="text" id="gpa_grade_${educationIndex}" name="gpa_grade_${educationIndex}" 
+                               placeholder="e.g., 3.8/4.0 or First Class">
+                        <div class="field-hint">GPA, grade, or classification (optional)</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', newEducationHTML);
+        educationIndex++;
+        
+        // Show remove button for all entries if there are now multiple entries
+        updateRemoveButtons();
+        
+        // Add scroll to new education entry
+        const newEntry = container.lastElementChild;
+        newEntry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Focus on the first field of the new entry
+        const firstField = newEntry.querySelector('select');
+        if (firstField) {
+            setTimeout(() => firstField.focus(), 500);
+        }
+    };
+    
+    window.removeEducation = function(index) {
+        const entry = document.querySelector(`[data-index="${index}"]`);
+        if (entry) {
+            // Add fade out animation
+            entry.style.transition = 'opacity 0.3s ease';
+            entry.style.opacity = '0';
+            
+            setTimeout(() => {
+                entry.remove();
+                updateEducationNumbers();
+                updateRemoveButtons();
+            }, 300);
+        }
+    };
+    
+    function updateEducationNumbers() {
+        const entries = document.querySelectorAll('.education-entry');
+        entries.forEach((entry, index) => {
+            const header = entry.querySelector('.education-header h4');
+            if (header) {
+                header.textContent = `Education #${index + 1}`;
+            }
+        });
+    }
+    
+    function updateRemoveButtons() {
+        const entries = document.querySelectorAll('.education-entry');
+        const removeButtons = document.querySelectorAll('.btn-remove-education');
+        
+        // Hide remove button if there's only one education entry
+        if (entries.length <= 1) {
+            removeButtons.forEach(btn => btn.style.display = 'none');
+        } else {
+            removeButtons.forEach(btn => btn.style.display = 'flex');
+        }
+    }
+    
+    function resetEducationSection() {
+        const container = document.getElementById('educationContainer');
+        const entries = container.querySelectorAll('.education-entry');
+        
+        // Remove all entries except the first one
+        entries.forEach((entry, index) => {
+            if (index > 0) {
+                entry.remove();
+            }
+        });
+        
+        // Clear the first entry
+        const firstEntry = container.querySelector('.education-entry');
+        if (firstEntry) {
+            const inputs = firstEntry.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.value = '';
+                clearFieldError(input);
+            });
+        }
+        
+        // Reset education index
+        educationIndex = 1;
+        updateRemoveButtons();
+        updateEducationNumbers();
+    }
+    
+    // Form validation
+    function validateForm() {
+        let isValid = true;
+        const requiredFields = form.querySelectorAll('[required]');
+        
+        // Clear all previous errors
+        document.querySelectorAll('.field-error').forEach(error => error.remove());
+        document.querySelectorAll('.error').forEach(field => field.classList.remove('error'));
+        
+        // Validate required fields
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                showFieldError(field, 'This field is required');
+                isValid = false;
+            } else {
+                clearFieldError(field);
+            }
+        });
+        
+        // Validate email format
+        const emailField = document.getElementById('email');
+        if (emailField.value && !isValidEmail(emailField.value)) {
+            showFieldError(emailField, 'Please enter a valid email address');
+            isValid = false;
+        }
+        
+        // Validate education entries
+        const educationEntries = document.querySelectorAll('.education-entry');
+        educationEntries.forEach((entry, index) => {
+            const entryIndex = entry.dataset.index;
+            const educationLevel = entry.querySelector(`[name="education_level_${entryIndex}"]`);
+            const institutionName = entry.querySelector(`[name="institution_name_${entryIndex}"]`);
+            const graduationYear = entry.querySelector(`[name="graduation_year_${entryIndex}"]`);
+            
+            // Check if any education field in this entry is filled
+            const hasAnyEducationData = Array.from(entry.querySelectorAll('input, select')).some(field => 
+                field.value && field.value.toString().trim()
+            );
+            
+            if (hasAnyEducationData) {
+                // If any education field is filled, require education level and institution
+                if (!educationLevel.value.trim()) {
+                    showFieldError(educationLevel, 'Education level is required when education details are provided');
+                    isValid = false;
+                }
+                if (!institutionName.value.trim()) {
+                    showFieldError(institutionName, 'Institution name is required when education details are provided');
+                    isValid = false;
+                }
+                
+                // Validate graduation year if provided
+                if (graduationYear.value) {
+                    const year = parseInt(graduationYear.value);
+                    const currentYear = new Date().getFullYear();
+                    if (year < 1950 || year > currentYear + 10) {
+                        showFieldError(graduationYear, `Graduation year must be between 1950 and ${currentYear + 10}`);
+                        isValid = false;
+                    }
+                }
+            }
+        });
+        
+        // Validate file uploads
+        document.querySelectorAll('.file-input').forEach(input => {
+            if (input.files.length > 0) {
+                const file = input.files[0];
+                const isDocument = input.classList.contains('document-input');
+                
+                if (isDocument) {
+                    if (file.size > 10 * 1024 * 1024) {
+                        showFieldError(input, 'Document must be smaller than 10MB');
+                        isValid = false;
+                    }
+                    if (file.type !== 'application/pdf') {
+                        showFieldError(input, 'Only PDF files are allowed');
+                        isValid = false;
+                    }
+                } else {
+                    if (file.size > 5 * 1024 * 1024) {
+                        showFieldError(input, 'Image must be smaller than 5MB');
+                        isValid = false;
+                    }
+                    if (!file.type.startsWith('image/')) {
+                        showFieldError(input, 'Only image files are allowed');
+                        isValid = false;
+                    }
+                }
+            }
+        });
+        
+        // Scroll to first error if validation failed
+        if (!isValid) {
+            const firstError = document.querySelector('.field-error');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        
+        return isValid;
+    }
+    
+    // File input setup function
+    function setupFileInput(input, options = {}) {
+        const wrapper = input.closest('.file-input-wrapper');
+        const textSpan = wrapper.querySelector('.file-text');
+        const sizeSpan = wrapper.querySelector('.file-size-display');
+        
+        input.addEventListener('change', function() {
+            const file = this.files[0];
+            
+            if (file) {
+                // Validate file
+                let isValid = true;
+                let errorMessage = '';
+                
+                // Check file size
+                if (options.maxSize && file.size > options.maxSize) {
+                    isValid = false;
+                    errorMessage = `File too large. Maximum size: ${formatFileSize(options.maxSize)}`;
+                }
+                
+                // Check file type
+                if (options.allowedTypes && !options.allowedTypes.includes(file.type)) {
+                    isValid = false;
+                    errorMessage = `Invalid file type. Allowed: ${options.allowedExtensions.join(', ')}`;
+                }
+                
+                // Check file extension
+                if (options.allowedExtensions) {
+                    const extension = '.' + file.name.split('.').pop().toLowerCase();
+                    if (!options.allowedExtensions.includes(extension)) {
+                        isValid = false;
+                        errorMessage = `Invalid file extension. Allowed: ${options.allowedExtensions.join(', ')}`;
+                    }
+                }
+                
+                if (isValid) {
+                    textSpan.textContent = file.name;
+                    if (sizeSpan) {
+                        sizeSpan.textContent = `(${formatFileSize(file.size)})`;
+                    }
+                    wrapper.classList.add('has-file');
+                    wrapper.classList.remove('error');
+                    clearFieldError(input);
+                } else {
+                    // Reset input
+                    this.value = '';
+                    textSpan.textContent = options.isDocument ? 'Choose PDF file...' : 'Choose photo...';
+                    if (sizeSpan) sizeSpan.textContent = '';
+                    wrapper.classList.remove('has-file');
+                    wrapper.classList.add('error');
+                    showFieldError(input, errorMessage);
+                }
+            } else {
+                textSpan.textContent = options.isDocument ? 'Choose PDF file...' : 'Choose photo...';
+                if (sizeSpan) sizeSpan.textContent = '';
+                wrapper.classList.remove('has-file', 'error');
+                clearFieldError(input);
+            }
+        });
+    }
+    
+    // Utility functions
+    function showFieldError(field, message) {
+        clearFieldError(field);
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'field-error';
+        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        
+        field.parentNode.appendChild(errorDiv);
+        field.classList.add('error');
+    }
+    
+    function clearFieldError(field) {
+        const existingError = field.parentNode.querySelector('.field-error');
+        if (existingError) {
+            existingError.remove();
+        }
+        field.classList.remove('error');
+    }
+    
+    function isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    function showLoading() {
+        loadingOverlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function hideLoading() {
+        loadingOverlay.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+    
+    // Auto-hide alerts after 5 seconds
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.3s ease';
+            alert.style.opacity = '0';
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.remove();
+                }
+            }, 300);
+        }, 5000);
+    });
+    
+    // Real-time validation for specific fields
+    const emailField = document.getElementById('email');
+    if (emailField) {
+        emailField.addEventListener('blur', function() {
+            if (this.value && !isValidEmail(this.value)) {
+                showFieldError(this, 'Please enter a valid email address');
+            } else {
+                clearFieldError(this);
+            }
+        });
+    }
+
+    
+    // Character limits for text fields
+    const textFields = ['first_name', 'last_name'];
+    textFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', function() {
+                if (this.value.length > 50) {
+                    this.value = this.value.substring(0, 50);
+                }
+                
+                // Real-time validation for names
+                clearFieldError(this);
+                    if (this.value.length > 0 && this.value.length < 1) {
+                        showFieldError(this, 'Name must be at least 1 character long');
+                    }
+            });
+        }
+    });
+    
+    // Add smooth scrolling for form sections
+    const formSections = document.querySelectorAll('.form-section h3');
+    formSections.forEach(section => {
+        section.style.cursor = 'pointer';
+        section.addEventListener('click', function() {
+            this.parentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    
+    // Add progress indicator
+    function updateFormProgress() {
+        const requiredFields = form.querySelectorAll('[required]');
+        const filledFields = Array.from(requiredFields).filter(field => field.value.trim() !== '');
+        const progress = (filledFields.length / requiredFields.length) * 100;
+        
+        // You can add a progress bar element to show completion percentage
+        console.log(`Form completion: ${Math.round(progress)}%`);
+    }
+    
+    // Monitor form progress
+    form.addEventListener('input', updateFormProgress);
+    form.addEventListener('change', updateFormProgress);
+    
+    // Initial progress check
+    updateFormProgress();
+});
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Full width form styling */
+.form-container {
+    width: 100%;
+    padding: 20px;
+    margin: 0;
+    max-width: none; /* Remove max-width constraint */
+}
+
+/* Education Section Styles */
+.education-container {
+    margin-bottom: 1.5rem;
+}
+
+.education-entry {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.education-entry:last-child {
+    margin-bottom: 0;
+}
+
+.education-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.education-header h4 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.btn-remove-education {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-remove-education:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+.education-actions {
+    text-align: center;
+    padding: 20px 0;
+    border-top: 1px solid #e9ecef;
+    margin-top: 20px;
+}
+
+.education-actions .btn {
+    min-width: 200px;
+}
+
+/* Responsive adjustments for education section */
+@media (max-width: 768px) {
+    .education-entry {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .education-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .btn-remove-education {
+        align-self: flex-end;
+    }
+}
+
+.form-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    width: 100%;
+}
+
+.form-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    color: white;
+    padding: 30px;
+    text-align: center;
+}
+
+.form-header h2 {
+    margin: 0 0 10px 0;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.form-header p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 1rem;
+}
+
+.employee-form {
+    padding: 30px;
+}
+
+.form-section {
+    margin-bottom: 40px;
+}
+
+.form-section h3 {
+    color: var(--primary-color);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Improved grid for full width */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 25px;
+    width: 100%;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group.document-field {
+    border: 2px dashed #e0e0e0;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #fafafa;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.required {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background-color: white;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(107, 30, 30, 0.1);
+}
+
+.form-group input.error,
+.form-group select.error,
+.form-group textarea.error {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.field-hint {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.document-hint {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: #856404;
+}
+
+.field-error {
+    color: #dc3545;
+    font-size: 0.85rem;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #f8d7da;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #f5c6cb;
+}
+
+/* File Input Styling */
+.file-input-wrapper {
+    position: relative;
+    cursor: pointer;
+    width: 100%;
+}
+
+.file-input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.file-input-display {
+    border: 2px dashed #ccc;
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background-color: #fafafa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.file-input-display:hover {
+    border-color: var(--primary-color);
+    background-color: #f8f9ff;
+}
+
+.file-input-wrapper.has-file .file-input-display {
+    border-color: #28a745;
+    background-color: #f8fff9;
+}
+
+.file-input-wrapper.error .file-input-display {
+    border-color: #dc3545;
+    background-color: #fff8f8;
+}
+
+.document-display {
+    border-style: solid !important;
+    background-color: white !important;
+}
+
+.file-input-display i {
+    font-size: 2rem;
+    color: #666;
+}
+
+.document-display i {
+    color: #dc3545;
+}
+
+.file-text {
+    font-weight: 500;
+    color: #333;
+}
+
+.file-size-display {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+/* Checkbox Styling */
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.checkbox-input {
+    position: absolute;
+    opacity: 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-custom {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    margin-right: 10px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.checkbox-input:checked + .checkbox-label .checkbox-custom {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.checkbox-input:checked + .checkbox-label .checkbox-custom::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: white;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-start;
+    align-items: center;
+    padding-top: 30px;
+    border-top: 2px solid #f0f0f0;
+    margin-top: 30px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+    justify-content: center;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(107, 30, 30, 0.3);
+}
+
+.btn-primary:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-2px);
+}
+
+.btn-outline {
+    background-color: transparent;
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-outline:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-loading {
+    display: none;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-content {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 300px;
+}
+
+.loading-spinner i {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+}
+
+.loading-content p {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.loading-content small {
+    color: #666;
+}
+
+/* Alert Styling */
+.alert {
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: opacity 0.3s ease;
+}
+
+.alert-error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .form-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .form-container {
+        padding: 15px;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .form-header {
+        padding: 20px;
+    }
+    
+    .employee-form {
+        padding: 20px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .form-container {
+        padding: 10px;
+    }
+    
+    .employee-form {
+        padding: 15px;
+    }
+    
+    .form-section h3 {
+        font-size: 1.1rem;
+    }
+}
+</style>
+{% endblock %}

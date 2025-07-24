@@ -1,0 +1,916 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="employee-details-container">
+    <div class="employee-header">
+        <div class="employee-avatar-large">
+            {% if employee.photo %}
+                <img src="/static/{{ employee.photo }}" alt="Employee Photo">
+            {% else %}
+                <div class="avatar-placeholder-large">
+                    {{ employee.first_name[0] }}{{ employee.last_name[0] }}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="employee-info-header">
+            <h1>{{ employee.first_name }} {{ employee.last_name }}</h1>
+            <p class="employee-id">{{ employee.employee_id }}</p>
+            <div class="status-badges">
+                <span class="status-badge status-{{ employee.status.value.lower().replace(' ', '-') }}">
+                    {{ employee.status.value }}
+                </span>
+                <span class="contract-status-badge contract-{{ employee.contract_status.value.lower() }}">
+                    {{ employee.contract_status.value }}
+                </span>
+            </div>
+        </div>
+        
+        <div class="header-actions">
+            <a href="/staff/edit/{{ employee.id }}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            {% if employee.biometric_id %}
+            <a href="/biometric/employee/{{ employee.id }}/attendance" class="btn btn-success">
+                <i class="fas fa-calendar-check"></i> Attendance
+            </a>
+            {% else %}
+            <a href="/staff/edit/{{ employee.id }}" class="btn btn-warning" title="Assign Biometric ID first">
+                <i class="fas fa-fingerprint"></i> Setup Biometric
+            </a>
+            {% endif %}
+            <a href="/performance/employee/{{ employee.id }}" class="btn btn-purple">
+            <i class="fas fa-chart-line"></i> Performance (beta)
+            </a>
+            <a href="/staff/generate-id-card/{{ employee.id }}" class="btn btn-success" target="_blank">
+                <i class="fas fa-id-card"></i> Generate ID Card
+            </a>
+            <a href="/leave/employee/{{ employee.id }}" class="btn btn-info">
+                <i class="fas fa-calendar-alt"></i> Leave
+            </a>
+            <a href="/staff/view" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    
+    <div class="employee-details-grid">
+        <div class="detail-card">
+            <h3><i class="fas fa-user"></i> Basic Information</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Full Name</label>
+                    <span>{{ employee.first_name }} {{ employee.last_name }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Email</label>
+                    <span>{{ employee.email }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Phone</label>
+                    <span>{{ employee.phone or 'Not provided' }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>
+                        <i class="fas fa-fingerprint"></i>
+                        Biometric ID
+                    </label>
+                    {% if employee.biometric_id %}
+                        <span class="biometric-id-badge">{{ employee.biometric_id }}</span>
+                    {% else %}
+                        <span class="no-data">Not assigned</span>
+                    {% endif %}
+                </div>
+                <div class="detail-item">
+                    <label>Emergency Contact</label>
+                    <span>{{ employee.emergency_contact or 'Not provided' }}</span>
+                </div>
+                {% if employee.address %}
+                <div class="detail-item full-width">
+                    <label>Address</label>
+                    <span>{{ employee.address }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <h3><i class="fas fa-id-card"></i> Personal Details</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+    <label>Date of Birth</label>
+    {% if employee.date_of_birth %}
+        <span>{{ employee.date_of_birth.strftime('%B %d, %Y') }}</span>
+        {% if employee_age is not none %}
+        <small class="age-info">
+            ({{ employee_age }} years old)
+        </small>
+        {% endif %}
+    {% else %}
+        <span class="no-data">Not provided</span>
+    {% endif %}
+</div>
+                
+                <div class="detail-item">
+                    <label>Gender</label>
+                    <span>{{ employee.gender.value if employee.gender else 'Not provided' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Nationality</label>
+                    <span>{{ employee.nationality or 'Not provided' }}</span>
+                </div>
+                
+                {% if employee.nationality == 'Ugandan' and employee.national_id_number %}
+                <div class="detail-item">
+                    <label>National ID Number</label>
+                    <span class="id-number">{{ employee.national_id_number }}</span>
+                </div>
+                {% elif employee.nationality and employee.nationality != 'Ugandan' and employee.passport_number %}
+                <div class="detail-item">
+                    <label>Passport Number</label>
+                    <span class="id-number">{{ employee.passport_number }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="detail-item">
+                    <label>Marital Status</label>
+                    <span>{{ employee.marital_status.value if employee.marital_status else 'Not provided' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Religion</label>
+                    <span>{{ employee.religion or 'Not provided' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Blood Group</label>
+                    {% if employee.blood_group %}
+                        <span class="blood-group-badge">{{ employee.blood_group.value }}</span>
+                    {% else %}
+                        <span class="no-data">Not provided</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="detail-card">
+            <h3><i class="fas fa-briefcase"></i> Employment Information</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Department</label>
+                    <span>{{ employee.department.name if employee.department else 'Not assigned' }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Position</label>
+                    <span>{{ employee.position }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>
+                        <i class="fas fa-clock"></i>
+                        Assigned Shift
+                    </label>
+                    {% if employee.shift %}
+                    <div class="shift-info">
+                        <div class="shift-name">
+                            <span class="shift-badge shift-{{ employee.shift.shift_type }}">
+                                {% if employee.shift.shift_type == 'standard' %}
+                                    <i class="fas fa-calendar"></i>
+                                {% else %}
+                                    <i class="fas fa-calendar-alt"></i>
+                                {% endif %}
+                                {{ employee.shift.name }}
+                            </span>
+                            {% if not employee.shift.is_active %}
+                                <span class="inactive-badge">INACTIVE</span>
+                            {% endif %}
+                        </div>
+                        <div class="shift-schedule">
+                            {% if employee.shift.shift_type == 'standard' %}
+                                <small>
+                                    <strong>Weekdays:</strong> 
+                                    {% if employee.shift.weekday_start and employee.shift.weekday_end %}
+                                        {{ employee.shift.weekday_start.strftime('%H:%M') }} - {{ employee.shift.weekday_end.strftime('%H:%M') }}
+                                    {% else %}
+                                        Not configured
+                                    {% endif %}
+                                    <br>
+                                    <strong>Weekends:</strong>
+                                    {% if employee.shift.weekend_start and employee.shift.weekend_end %}
+                                        {{ employee.shift.weekend_start.strftime('%H:%M') }} - {{ employee.shift.weekend_end.strftime('%H:%M') }}
+                                    {% else %}
+                                        Off days
+                                    {% endif %}
+                                </small>
+                            {% else %}
+                                <small>Dynamic schedule - varies by day</small>
+                            {% endif %}
+                        </div>
+                        {% if employee.shift.description %}
+                        <div class="shift-description">
+                            <small><em>{{ employee.shift.description }}</em></small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <span class="no-shift">
+                        <i class="fas fa-minus-circle text-muted"></i>
+                        No shift assigned
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <div class="detail-item">
+                    <label>Hire Date</label>
+                    <span>{{ employee.hire_date.strftime('%B %d, %Y') if employee.hire_date else 'Not set' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Employment Status</label>
+                    <span>{{ employee.status.value }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Contract Status</label>
+                    <span>{{ employee.contract_status.value }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Employee ID</label>
+                    <span class="employee-id-badge">{{ employee.employee_id }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Employment Type</label>
+                    <span>{{ employee.employment_type.value if employee.employment_type else 'Not specified' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <h3><i class="fas fa-file-invoice"></i> Tax & Employment Details</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>TIN Number</label>
+                    <span>{{ employee.tin_number or 'Not provided' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>NSSF Number</label>
+                    <span>{{ employee.nssf_number or 'Not provided' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Start of Employment</label>
+                    <span>{{ employee.start_of_employment.strftime('%B %d, %Y') if employee.start_of_employment else 'Not set' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>End of Employment</label>
+                    {% if employee.end_of_employment %}
+                        <span>{{ employee.end_of_employment.strftime('%B %d, %Y') }}</span>
+                    {% else %}
+                        <span class="no-data">Not set</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <h3><i class="fas fa-university"></i> Bank Details</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Bank Name</label>
+                    <span>{{ employee.bank_name or 'Not provided' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Branch Name</label>
+                    <span>{{ employee.branch_name or 'Not provided' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Account Title</label>
+                    <span>{{ employee.account_title or 'Not provided' }}</span>
+                </div>
+                
+                <div class="detail-item">
+                    <label>Account Number</label>
+                    {% if employee.account_number %}
+                        <span class="account-number">{{ employee.account_number }}</span>
+                    {% else %}
+                        <span class="no-data">Not provided</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if education_data and education_data|length > 0 %}
+        <div class="detail-card">
+            <h3><i class="fas fa-graduation-cap"></i> Education Background</h3>
+            <div class="education-list">
+                {% for education in education_data %}
+                <div class="education-item">
+                    <div class="education-header">
+                        <div class="education-level">
+                            {% if education.education_level %}
+                                {% if education.education_level == 'high_school' %}
+                                    <span class="education-badge level-high-school">
+                                        <i class="fas fa-school"></i> High School
+                                    </span>
+                                {% elif education.education_level == 'diploma' %}
+                                    <span class="education-badge level-diploma">
+                                        <i class="fas fa-certificate"></i> Diploma/Certificate
+                                    </span>
+                                {% elif education.education_level == 'associate' %}
+                                    <span class="education-badge level-associate">
+                                        <i class="fas fa-graduation-cap"></i> Associate Degree
+                                    </span>
+                                {% elif education.education_level == 'bachelor' %}
+                                    <span class="education-badge level-bachelor">
+                                        <i class="fas fa-graduation-cap"></i> Bachelor's Degree
+                                    </span>
+                                {% elif education.education_level == 'master' %}
+                                    <span class="education-badge level-master">
+                                        <i class="fas fa-graduation-cap"></i> Master's Degree
+                                    </span>
+                                {% elif education.education_level == 'doctorate' %}
+                                    <span class="education-badge level-doctorate">
+                                        <i class="fas fa-user-graduate"></i> Doctorate/PhD
+                                    </span>
+                                {% elif education.education_level == 'professional' %}
+                                    <span class="education-badge level-professional">
+                                        <i class="fas fa-briefcase"></i> Professional Degree
+                                    </span>
+                                {% else %}
+                                    <span class="education-badge level-other">
+                                        <i class="fas fa-book"></i> {{ education.education_level.replace('_', ' ').title() }}
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+                            
+                            {% if education.graduation_year %}
+                                <span class="graduation-year">{{ education.graduation_year }}</span>
+                            {% endif %}
+                        </div>
+                        
+                        {% if education.gpa_grade %}
+                            <div class="gpa-grade">
+                                <span class="gpa-badge">{{ education.gpa_grade }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="education-details">
+                        {% if education.institution_name %}
+                            <div class="institution-name">
+                                <i class="fas fa-university"></i>
+                                <strong>{{ education.institution_name }}</strong>
+                            </div>
+                        {% endif %}
+                        
+                        {% if education.degree_title %}
+                            <div class="degree-title">
+                                <i class="fas fa-scroll"></i>
+                                {{ education.degree_title }}
+                            </div>
+                        {% endif %}
+                        
+                        {% if education.field_of_study %}
+                            <div class="field-of-study">
+                                <i class="fas fa-book-open"></i>
+                                <span class="field-label">Field of Study:</span> {{ education.field_of_study }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if not loop.last %}
+                    <div class="education-separator"></div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if custom_fields %}
+        <div class="detail-card">
+            <h3><i class="fas fa-cogs"></i> Additional Information</h3>
+            <div class="detail-grid">
+                {% for field in custom_fields %}
+                {% set field_value = custom_field_values.get(field.field_name, 'Not provided') %}
+                <div class="detail-item {% if field.field_type == 'document' %}document-field{% endif %}">
+                    <label>{{ field.field_label }}</label>
+                    {% if field.field_type == 'document' and field_value and field_value != 'Not provided' %}
+                        <div class="document-download">
+                            <div class="document-file-info">
+                                <i class="fas fa-file-pdf"></i>
+                                <div class="file-details">
+                                    <span class="file-name" title="{{ field_value.split('/')[-1] if '/' in field_value else field_value }}">
+                                        {{ field_value.split('/')[-1] if '/' in field_value else field_value }}
+                                    </span>
+                                    <small>PDF Document</small>
+                                </div>
+                            </div>
+                            <div class="document-actions">
+                                <a href="/staff/download/{{ employee.id }}/{{ field.field_name }}" 
+                                   class="btn btn-sm btn-primary">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <a href="/staff/preview/{{ employee.id }}/{{ field.field_name }}" 
+                                   class="btn btn-sm btn-outline" target="_blank">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <span>{{ field_value }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="detail-card">
+            <h3><i class="fas fa-clock"></i> System Information</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Created</label>
+                    <span>{{ employee.created_at.strftime('%B %d, %Y at %I:%M %p') }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Last Updated</label>
+                    <span>{{ employee.updated_at.strftime('%B %d, %Y at %I:%M %p') }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Document field specific styling */
+.document-field {
+    grid-column: 1 / -1; /* Full width for documents */
+}
+
+.document-download {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #dee2e6;
+    gap: 1rem;
+}
+
+.document-file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0; /* Allow text to shrink */
+}
+
+.document-file-info i {
+    color: #dc3545;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.file-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0; /* Allow text to shrink */
+}
+
+.file-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    
+    /* Handle long filenames */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.file-details small {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.document-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* New field styling */
+.age-info {
+    display: block;
+    color: #6b7280;
+    font-style: italic;
+    margin-top: 2px;
+}
+
+.id-number {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    background: #f3f4f6;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid #d1d5db;
+}
+
+.blood-group-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.account-number {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    background: #ecfdf5;
+    color: #059669;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid #a7f3d0;
+}
+
+.no-data {
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* Education Section Styles */
+.education-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Purple button style for performance */
+.btn.btn-purple {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+    border: 1px solid #7c3aed;
+}
+
+.btn.btn-purple:hover {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    border-color: #6d28d9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.btn.btn-purple:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.2);
+}
+
+.education-item {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.education-item:hover {
+    background: #f1f3f4;
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.education-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.education-level {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.education-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+}
+
+.education-badge.level-high-school {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+
+.education-badge.level-diploma {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.education-badge.level-associate {
+    background-color: #e0e7ff;
+    color: #3730a3;
+    border: 1px solid #a5b4fc;
+}
+
+.education-badge.level-bachelor {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.education-badge.level-master {
+    background-color: #fce7f3;
+    color: #9d174d;
+    border: 1px solid #f9a8d4;
+}
+
+.education-badge.level-doctorate {
+    background-color: #f3e8ff;
+    color: #6b21a8;
+    border: 1px solid #c4b5fd;
+}
+
+.education-badge.level-professional {
+    background-color: #fed7d7;
+    color: #c53030;
+    border: 1px solid #fc8181;
+}
+
+.education-badge.level-other {
+    background-color: #e2e8f0;
+    color: #4a5568;
+    border: 1px solid #cbd5e0;
+}
+
+.graduation-year {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.gpa-grade {
+    display: flex;
+    align-items: center;
+}
+
+.gpa-badge {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.education-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.institution-name,
+.degree-title,
+.field-of-study {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    line-height: 1.5;
+}
+
+.institution-name {
+    font-size: 1.1rem;
+}
+
+.institution-name strong {
+    color: var(--primary-color);
+}
+
+.degree-title {
+    color: #4a5568;
+    font-weight: 500;
+}
+
+.field-of-study {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.field-label {
+    font-weight: 600;
+    color: #374151;
+}
+
+.education-details i {
+    color: var(--primary-color);
+    width: 16px;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+}
+
+.education-separator {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
+    margin: 0.5rem 0;
+}
+
+/* Shift-specific styling */
+.shift-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.shift-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.shift-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.shift-badge.shift-standard {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.shift-badge.shift-dynamic {
+    background-color: #d1fae5;
+    color: #059669;
+}
+
+.inactive-badge {
+    padding: 0.125rem 0.375rem;
+    background-color: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.shift-schedule {
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.shift-description {
+    color: #6b7280;
+    font-style: italic;
+}
+
+.no-shift {
+    color: #9ca3af;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.biometric-id-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.75rem;
+    background-color: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    border-radius: 0.375rem;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+}
+
+.biometric-id-badge::before {
+    content: '\f6b2'; /* fingerprint icon */
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    font-size: 0.75rem;
+}
+
+.text-warning {
+    color: #f59e0b !important;
+}
+
+.text-muted {
+    color: #9ca3af !important;
+}
+
+.inactive-shift {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .education-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .education-level {
+        justify-content: flex-start;
+    }
+    
+    .gpa-grade {
+        justify-content: flex-start;
+    }
+    
+    .education-item {
+        padding: 1rem;
+    }
+    
+    .institution-name,
+    .degree-title,
+    .field-of-study {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .institution-name i,
+    .degree-title i,
+    .field-of-study i {
+        margin-top: 0;
+    }
+    
+    .document-download {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .file-name {
+        max-width: none;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+    }
+    
+    .document-actions {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .education-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .graduation-year {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .gpa-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+</style>
+{% endblock %}

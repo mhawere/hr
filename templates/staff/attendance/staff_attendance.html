@@ -1,0 +1,1876 @@
+{% extends "base.html" %}
+
+{% block title %}{{ employee.first_name }} {{ employee.last_name }} - Attendance{% endblock %}
+
+{% block page_title %}Employee Attendance{% endblock %}
+
+{% block content %}
+<div class="attendance-page">
+    <!-- Employee Header -->
+    <div class="employee-header">
+        <div class="employee-avatar-large">
+            {% if employee.photo %}
+                <img src="/static/{{ employee.photo }}" alt="{{ employee.first_name }} {{ employee.last_name }}">
+            {% else %}
+                <div class="avatar-placeholder-large">
+                    {{ employee.first_name[0] }}{{ employee.last_name[0] }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="employee-info-header">
+            <h1>{{ employee.first_name }} {{ employee.last_name }}</h1>
+            <p class="employee-id">ID: {{ employee.employee_id }}</p>
+            {% if employee.biometric_id %}
+                <p class="employee-id">Biometric: {{ employee.biometric_id }}</p>
+            {% else %}
+                <p style="color: var(--error-color); font-weight: 600;">⚠️ No Biometric ID Assigned</p>
+            {% endif %}
+            <p style="color: var(--text-secondary); margin: 0;">
+                {{ employee.department.name if employee.department else 'No Department' }} • {{ employee.position }}
+            </p>
+            <div class="status-badges">
+                <span class="status-badge status-{{ employee.status.value.lower().replace(' ', '-') }}">
+                    {{ employee.status.value }}
+                </span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="/staff/view/{{ employee.id }}" class="btn btn-outline">
+                <i class="fas fa-arrow-left"></i> Back to Profile
+            </a>
+            {% if employee.biometric_id %}
+                <button class="btn btn-primary" onclick="syncAttendance(true)" id="fullSyncBtn">
+                    <i class="fas fa-download"></i> Monthly Sync
+                </button>
+                <button class="btn btn-info" onclick="openRangeSyncModal()" id="rangeSyncBtn">
+                    <i class="fas fa-calendar-alt"></i> Range Sync
+                </button>
+                <button class="btn btn-warning" onclick="recalculateStats()" id="recalculateBtn">
+                    <i class="fas fa-calculator"></i> Recalculate Stats
+                </button>
+                <button class="btn btn-success" onclick="openReportModal()" id="reportBtn">
+                    <i class="fas fa-file-pdf"></i> Download Report
+                </button>
+            {% else %}
+                <a href="/staff/edit/{{ employee.id }}" class="btn btn-primary">
+                    <i class="fas fa-edit"></i> Assign Biometric ID
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section" style="background: white; padding: 1.5rem; border-radius: 0.75rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <div class="filter-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h4 style="margin: 0; color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-filter"></i> Filter Attendance
+            </h4>
+            <div class="filter-actions" style="display: flex; gap: 0.5rem;">
+                <button onclick="applyQuickFilter('current-month')" class="quick-filter-btn active" data-period="current-month">This Month</button>
+                <button onclick="applyQuickFilter('last-month')" class="quick-filter-btn" data-period="last-month">Last Month</button>
+                <button onclick="applyQuickFilter('last-3-months')" class="quick-filter-btn" data-period="last-3-months">Last 3 Months</button>
+                <button onclick="applyQuickFilter('current-year')" class="quick-filter-btn" data-period="current-year">This Year</button>
+            </div>
+        </div>
+        
+        <form class="filter-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: end;">
+            <div>
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-primary);">From Date</label>
+                <input type="date" id="filter_start_date" name="start_date" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 0.5rem; background: white;" value="{{ start_date.strftime('%Y-%m-%d') if start_date else '' }}">
+            </div>
+            
+            <div>
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-primary);">To Date</label>
+                <input type="date" id="filter_end_date" name="end_date" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 0.5rem; background: white;" value="{{ end_date.strftime('%Y-%m-%d') if end_date else '' }}">
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="button" onclick="applyFilter()" class="btn btn-primary" style="flex: 1;">
+                    <i class="fas fa-search"></i> Apply
+                </button>
+                <button type="button" onclick="resetFilters()" class="btn btn-outline" style="padding: 0.75rem;">
+                    <i class="fas fa-refresh"></i>
+                </button>
+            </div>
+        </form>
+        
+        <div id="filter-summary" style="margin-top: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); display: none;">
+            <i class="fas fa-info-circle"></i> <span id="filter-text"></span>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="stat-card primary" style="position: relative; overflow: hidden;">
+            <div class="stat-loading" style="display: none; position: absolute; inset: 0; background: rgba(255,255,255,0.9); align-items: center; justify-content: center;">
+                <div class="loading-spinner"></div>
+            </div>
+            <div class="stat-icon">
+                <i class="fas fa-percentage"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="attendance-rate">{{ "%.1f"|format(summary.attendance_percentage if summary else 0) }}%</h3>
+                <p>Attendance Rate</p>
+                <span class="stat-trend">
+                    <i class="fas fa-chart-line"></i> 
+                    <span id="attendance-trend">Current period</span>
+                </span>
+                <div class="stat-progress" style="width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; margin-top: 0.5rem; overflow: hidden;">
+                    <div class="progress-bar" data-percentage="{{ summary.attendance_percentage if summary else 0 }}" style="height: 100%; background: rgba(255,255,255,0.8); width: {{ summary.attendance_percentage if summary else 0 }}%; transition: width 0.3s ease;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stat-card success" style="position: relative; overflow: hidden;">
+            <div class="stat-loading" style="display: none; position: absolute; inset: 0; background: rgba(255,255,255,0.9); align-items: center; justify-content: center;">
+                <div class="loading-spinner"></div>
+            </div>
+            <div class="stat-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="present-days">{{ summary.present_days if summary else 0 }}</h3>
+                <p>Present Days</p>
+                <span class="stat-trend">
+                    <i class="fas fa-arrow-up"></i> Good attendance
+                </span>
+            </div>
+        </div>
+        
+        <div class="stat-card warning" style="position: relative; overflow: hidden;">
+            <div class="stat-loading" style="display: none; position: absolute; inset: 0; background: rgba(255,255,255,0.9); align-items: center; justify-content: center;">
+                <div class="loading-spinner"></div>
+            </div>
+            <div class="stat-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="late-days">{{ summary.late_days if summary else 0 }}</h3>
+                <p>Late Days</p>
+                <span class="stat-trend">
+                    <i class="fas fa-clock"></i> Track punctuality
+                </span>
+            </div>
+        </div>
+        
+        <div class="stat-card info" style="position: relative; overflow: hidden;">
+            <div class="stat-loading" style="display: none; position: absolute; inset: 0; background: rgba(255,255,255,0.9); align-items: center; justify-content: center;">
+                <div class="loading-spinner"></div>
+            </div>
+            <div class="stat-icon">
+                <i class="fas fa-hourglass-half"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="total-hours">{{ "%.1f"|format(summary.total_hours if summary else 0) }}h</h3>
+                <p>Total Hours</p>
+                <span class="stat-trend">
+                    <i class="fas fa-calculator"></i> 
+                    <span id="hours-trend">Calculated hours</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Records Table -->
+    <div class="table-container">
+        <div class="table-header">
+            <h3><i class="fas fa-table"></i> Attendance Records</h3>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                {% if start_date and end_date %}
+                <span style="background: var(--primary-color); color: white; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.8rem;">
+                    {{ start_date.strftime('%b %d') }} - {{ end_date.strftime('%b %d, %Y') }}
+                </span>
+                {% endif %}
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                    {{ records|length if records else 0 }} records
+                </span>
+            </div>
+        </div>
+        
+        {% if records %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 120px;">Date</th>
+                        <th style="width: 120px;">Check In</th>
+                        <th style="width: 120px;">Check Out</th>
+                        <th style="width: 80px; text-align: center;">Hours</th>
+                        <th style="width: 100px; text-align: center;">Status</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color); line-height: 1;">
+                                        {{ record.date.strftime('%d') }}
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">
+                                        {{ record.date.strftime('%b') }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 500; color: var(--text-primary);">
+                                        {{ record.date.strftime('%Y') }}
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                        {{ record.date.strftime('%A') }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if record.check_in_time %}
+                                <div>
+                                    <div style="font-family: monospace; font-weight: 600; font-size: 1rem;">
+                                        {{ record.check_in_time.strftime('%H:%M') }}
+                                    </div>
+                                    {% if record.expected_start_time %}
+                                        <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                            Expected: {{ record.expected_start_time }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span style="color: var(--text-secondary); font-style: italic;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.check_out_time %}
+                                <div>
+                                    <div style="font-family: monospace; font-weight: 600; font-size: 1rem;">
+                                        {{ record.check_out_time.strftime('%H:%M') }}
+                                    </div>
+                                    {% if record.expected_end_time %}
+                                        <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                            Expected: {{ record.expected_end_time }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span style="color: var(--text-secondary); font-style: italic;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            {% if record.total_working_hours > 0 %}
+                                <span style="font-family: monospace; font-weight: 600; color: var(--primary-color);">
+                                    {{ "%.1f"|format(record.total_working_hours) }}h
+                                </span>
+                            {% else %}
+                                <span style="color: var(--text-secondary);">0h</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            {% if record.status.lower() == 'present' %}
+                                <span class="status-badge status-active">PRESENT</span>
+                            {% elif record.status.lower() == 'absent' %}
+                                <span class="status-badge status-not-active">ABSENT</span>
+                            {% elif record.status.lower() == 'late' %}
+                                <span style="background: #fff3cd; color: #856404; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">LATE</span>
+                            {% elif record.status.lower() == 'day_off' %}
+                                <span style="background: #f8f9fa; color: #6c757d; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">DAY OFF</span>
+                            {% elif record.status.lower() == 'public_holiday' %}
+                                <span style="background: #d1ecf1; color: #0c5460; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">🎉 HOLIDAY</span>
+                            {% elif record.status.lower() == 'on_leave' %}
+                                <span style="background: #cce5ff; color: #004085; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">ON LEAVE</span>
+                            {% else %}
+                                <span class="status-badge" style="background: #e3f2fd; color: #1976d2;">{{ record.status.upper() }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                <!-- Main notes from database (includes public holiday names, day off info) -->
+                                {% if record.notes %}
+                                    <span style="background: #f8f9fa; color: #495057; padding: 0.15rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 500; display: inline-block; width: fit-content; border-left: 3px solid #6c757d;">
+                                        {{ record.notes }}
+                                    </span>
+                                {% endif %}
+                                
+                                <!-- Visual badges for late/early (separate from notes) -->
+                                {% if record.is_late and record.late_minutes > 0 %}
+                                    <span style="background: #fff3cd; color: #856404; padding: 0.15rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 500; display: inline-block; width: fit-content;">
+                                        ⏰ {{ record.late_minutes }}min late
+                                    </span>
+                                {% endif %}
+                                {% if record.is_early_departure and record.early_departure_minutes > 0 %}
+                                    <span style="background: #e3f2fd; color: #1976d2; padding: 0.15rem 0.5rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 500; display: inline-block; width: fit-content;">
+                                        🏃 {{ record.early_departure_minutes }}min early
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                {% if not employee.biometric_id %}
+                    <i class="fas fa-user-cog" style="font-size: 4rem; color: var(--warning-color); margin-bottom: 1rem;"></i>
+                    <h4>Biometric ID Required</h4>
+                    <p>This employee needs a biometric ID to start tracking attendance.</p>
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 0.5rem; padding: 1rem; margin: 1rem 0; text-align: left;">
+                        <h5 style="margin: 0 0 0.5rem; color: #856404;">⚠️ Setup Required:</h5>
+                        <ul style="margin: 0; padding-left: 1.5rem; color: #856404;">
+                            <li>Assign a biometric ID to this employee</li>
+                            <li>Ensure the employee is registered in the biometric system</li>
+                            <li>Test the biometric device connection</li>
+                        </ul>
+                    </div>
+                    <a href="/staff/edit/{{ employee.id }}" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Assign Biometric ID
+                    </a>
+                {% else %}
+                    <i class="fas fa-calendar-times" style="font-size: 4rem; color: var(--text-secondary); margin-bottom: 1rem;"></i>
+                    <h4>No Attendance Records Found</h4>
+                    <p>No attendance data found for the selected date range.</p>
+                    <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 0.5rem; padding: 1rem; margin: 1rem 0; text-align: left;">
+                        <h5 style="margin: 0 0 0.5rem; color: #721c24;">🔍 Possible Reasons:</h5>
+                        <ul style="margin: 0; padding-left: 1.5rem; color: #721c24;">
+                            <li>Employee didn't punch in/out during this period</li>
+                            <li>Biometric ID mismatch (ID: <strong>{{ employee.biometric_id }}</strong>)</li>
+                            <li>Biometric system data not available for this date range</li>
+                            <li>Device connectivity issues during the period</li>
+                        </ul>
+                    </div>
+                    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="syncAttendance(false)">
+                            <i class="fas fa-sync-alt"></i> Quick Sync
+                        </button>
+                        <button class="btn btn-primary" onclick="syncAttendance(true)">
+                            <i class="fas fa-download"></i> Full Month Sync
+                        </button>
+                        <button class="btn btn-outline" onclick="expandDateRange()">
+                            <i class="fas fa-calendar-plus"></i> Expand Date Range
+                        </button>
+                        <a href="/staff/edit/{{ employee.id }}" class="btn btn-outline">
+                            <i class="fas fa-edit"></i> Check Biometric ID
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Sync Modal -->
+<div id="syncModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 1rem; padding: 2rem; max-width: 600px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0; color: var(--primary-color);" id="syncModalTitle">Synchronizing Attendance</h4>
+            <button onclick="closeSyncModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">×</button>
+        </div>
+        
+        <!-- Range Selection Form -->
+        <div id="rangeSyncForm" style="display: none; margin-bottom: 1.5rem;">
+            <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                <h5 style="margin: 0 0 1rem; color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-calendar-alt"></i> Select Date Range
+                </h5>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">From Month</label>
+                        <select id="startMonth" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.25rem;">
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">To Month</label>
+                        <select id="endMonth" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.25rem;">
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">From Year</label>
+                        <select id="startYear" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.25rem;">
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">To Year</label>
+                        <select id="endYear" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.25rem;">
+                        </select>
+                    </div>
+                </div>
+                <div id="rangeInfo" style="padding: 0.75rem; background: #e3f2fd; border-radius: 0.25rem; color: #1976d2; font-size: 0.9rem;">
+                    <i class="fas fa-info-circle"></i> <span id="rangeDescription">Select your date range</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button onclick="closeSyncModal()" class="btn btn-outline">Cancel</button>
+                <button onclick="startRangeSync()" class="btn btn-primary" id="confirmRangeSyncBtn">
+                    <i class="fas fa-sync-alt"></i> Start Range Sync
+                </button>
+            </div>
+        </div>
+        
+        <!-- Progress Section -->
+        <div id="syncProgress" style="text-align: center;">
+            <i class="fas fa-sync-alt fa-spin" style="font-size: 2rem; color: var(--primary-color); margin-bottom: 1rem;"></i>
+            <p id="syncMessage" style="margin: 0 0 1rem; color: var(--text-secondary);">Fetching data from biometric system...</p>
+            <div id="syncProgressBar" style="display: none;">
+                <div style="background: #f0f0f0; border-radius: 0.5rem; height: 8px; overflow: hidden; margin-bottom: 1rem;">
+                    <div id="progressBar" style="background: var(--primary-color); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);" id="progressText">This may take a few moments...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Modal -->
+<div id="reportModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 1rem; padding: 2rem; max-width: 500px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0; color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-file-pdf"></i> Generate Attendance Report
+            </h4>
+            <button onclick="closeReportModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">×</button>
+        </div>
+        
+        <form id="reportForm" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">Quick Ranges</label>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button type="button" onclick="setReportQuickRange('current-month')" class="report-quick-btn" data-range="current-month">This Month</button>
+                    <button type="button" onclick="setReportQuickRange('last-month')" class="report-quick-btn" data-range="last-month">Last Month</button>
+                    <button type="button" onclick="setReportQuickRange('last-3-months')" class="report-quick-btn" data-range="last-3-months">Last 3 Months</button>
+                    <button type="button" onclick="setReportQuickRange('current-year')" class="report-quick-btn" data-range="current-year">This Year</button>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">From Date *</label>
+                    <input type="date" id="reportStartDate" name="start_date" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 0.5rem; background: white;" required>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">To Date *</label>
+                    <input type="date" id="reportEndDate" name="end_date" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 0.5rem; background: white;" required>
+                </div>
+            </div>
+            
+            <div id="reportRangeInfo" style="padding: 0.75rem; background: #e3f2fd; border-radius: 0.5rem; color: #1976d2; font-size: 0.9rem; display: none;">
+                <i class="fas fa-info-circle"></i> <span id="reportRangeDescription">Select your date range</span>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                <button type="button" onclick="closeReportModal()" class="btn btn-outline">Cancel</button>
+                <button type="submit" class="btn btn-success" id="generateReportBtn">
+                    <i class="fas fa-file-pdf"></i> Generate Report
+                </button>
+            </div>
+        </form>
+        
+        <div id="reportGenerating" style="display: none; text-align: center; padding: 2rem;">
+            <i class="fas fa-file-pdf fa-spin" style="font-size: 2rem; color: var(--success-color); margin-bottom: 1rem;"></i>
+            <p style="margin: 0; color: var(--text-secondary);">Generating your attendance report...</p>
+            <div style="background: #f0f0f0; border-radius: 0.5rem; height: 8px; overflow: hidden; margin: 1rem 0;">
+                <div id="reportProgressBar" style="background: var(--success-color); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* Quick Filter Buttons */
+.quick-filter-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+}
+
+.quick-filter-btn:hover {
+    background: #f8f9fa;
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.quick-filter-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Report Quick Buttons */
+.report-quick-btn {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+}
+
+.report-quick-btn:hover {
+    background: #f8f9fa;
+    border-color: var(--primary-color);
+}
+
+.report-quick-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* Loading Spinner */
+.loading-spinner, .sync-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.sync-spinner {
+    border-top-color: #fff;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Stat Cards */
+.stat-card {
+    transition: all 0.3s ease;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Date Inputs */
+input[type="date"] {
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    background-color: rgba(0,0,0,0.1);
+}
+
+input[type="date"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(107, 30, 30, 0.1);
+}
+
+/* Notification */
+#notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    color: white;
+    font-weight: 500;
+    z-index: 10000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    max-width: 300px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border-left: 4px solid currentColor;
+}
+
+/* Button States */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.btn:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.btn:not(:disabled):active {
+    transform: translateY(0);
+}
+
+/* Accessibility */
+.btn:focus, .quick-filter-btn:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .filter-form {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .filter-actions {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .quick-filter-btn {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .header-actions {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .data-table {
+        font-size: 0.9rem;
+    }
+    
+    .data-table th, .data-table td {
+        padding: 0.75rem 0.5rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .header-actions,
+    .filter-section,
+    #notification {
+        display: none !important;
+    }
+}
+</style>
+
+<script>
+// ===========================
+// ATTENDANCE MANAGEMENT SYSTEM
+// ===========================
+
+// Global Application State
+var AttendanceApp = {
+    state: {
+        isLoading: false,
+        currentFilters: {},
+        syncInProgress: false
+    },
+    config: {
+        employeeId: {{ employee.id }},
+        currentYear: new Date().getFullYear(),
+        startYear: 2020,
+        endYear: new Date().getFullYear() + 1,
+        animationDuration: 300,
+        progressUpdateInterval: 500
+    }
+};
+
+// Logger Utility
+var logger = {
+    info: function(msg) {
+        console.log('[INFO] ' + msg);
+    },
+    error: function(msg) {
+        console.error('[ERROR] ' + msg);
+    },
+    success: function(msg) {
+        console.log('[SUCCESS] ' + msg);
+    }
+};
+
+// ===========================
+// INITIALIZATION
+// ===========================
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeApp();
+});
+
+function initializeApp() {
+    logger.info('Initializing Attendance Management System');
+    
+    initializeYearDropdowns();
+    initializeRangeSync();
+    initializeEventListeners();
+    initializeKeyboardShortcuts();
+    initializeDateInputs();
+    loadCurrentFilters();
+    
+    // Initialize report form submission
+    var reportForm = document.getElementById('reportForm');
+    if (reportForm) {
+        reportForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await generateAttendanceReport();
+        });
+    }
+    
+    logger.success('Attendance Management System Ready');
+}
+
+function initializeEventListeners() {
+    document.addEventListener('keydown', handleKeydown);
+    window.addEventListener('click', handleWindowClick);
+}
+
+function initializeKeyboardShortcuts() {
+    document.addEventListener('keydown', function(e) {
+        if (e.altKey && !AttendanceApp.state.syncInProgress && !AttendanceApp.state.isLoading) {
+            switch(e.key) {
+                case '1':
+                    e.preventDefault();
+                    applyQuickFilter('current-month');
+                    break;
+                case '2':
+                    e.preventDefault();
+                    applyQuickFilter('last-month');
+                    break;
+                case '3':
+                    e.preventDefault();
+                    applyQuickFilter('last-3-months');
+                    break;
+                case 'f':
+                    e.preventDefault();
+                    syncAttendance(true);
+                    break;
+                case 'r':
+                    e.preventDefault();
+                    openRangeSyncModal();
+                    break;
+                case 'c':
+                    e.preventDefault();
+                    recalculateStats();
+                    break;
+            }
+        }
+    });
+}
+
+function initializeDateInputs() {
+    var filterStartDate = document.getElementById('filter_start_date');
+    var filterEndDate = document.getElementById('filter_end_date');
+    
+    if (filterStartDate) {
+        filterStartDate.addEventListener('change', debounce(updateFilterPreview, 300));
+    }
+    if (filterEndDate) {
+        filterEndDate.addEventListener('change', debounce(updateFilterPreview, 300));
+    }
+    
+    // Set max date to today
+    var today = formatDateForInput(new Date());
+    var dateInputs = document.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(function(input) {
+        input.max = today;
+    });
+}
+
+// ===========================
+// FILTER FUNCTIONALITY
+// ===========================
+
+function applyQuickFilter(period) {
+    if (AttendanceApp.state.isLoading) return;
+    
+    updateQuickFilterButtons(period);
+    
+    var dates = calculateDateRange(period);
+    
+    document.getElementById('filter_start_date').value = formatDateForInput(dates.startDate);
+    document.getElementById('filter_end_date').value = formatDateForInput(dates.endDate);
+    
+    applyFilter();
+}
+
+function calculateDateRange(period) {
+    var today = new Date();
+    var startDate, endDate;
+    
+    switch(period) {
+        case 'current-month':
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            break;
+        case 'last-month':
+            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+            break;
+        case 'last-3-months':
+            startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            break;
+        case 'current-year':
+            startDate = new Date(today.getFullYear(), 0, 1);
+            endDate = new Date(today.getFullYear(), 11, 31);
+            break;
+        default:
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    }
+    
+    if (endDate > today) {
+        endDate = today;
+    }
+    
+    return { startDate: startDate, endDate: endDate };
+}
+
+function formatDateForInput(date) {
+    return date.toISOString().split('T')[0];
+}
+
+function getFilterData() {
+    var startDateEl = document.getElementById('filter_start_date');
+    var endDateEl = document.getElementById('filter_end_date');
+    
+    return {
+        start_date: startDateEl ? startDateEl.value : '',
+        end_date: endDateEl ? endDateEl.value : '',
+        timestamp: Date.now()
+    };
+}
+
+function validateFilterData(data) {
+    if (!data.start_date || !data.end_date) {
+        return false;
+    }
+    
+    var startDate = new Date(data.start_date);
+    var endDate = new Date(data.end_date);
+    var today = new Date();
+    
+    if (startDate > endDate) {
+        return false;
+    }
+    
+    if (startDate > today) {
+        return false;
+    }
+    
+    return true;
+}
+
+function updateFilterSummary(filterData) {
+    var summary = document.getElementById('filter-summary');
+    var text = document.getElementById('filter-text');
+    
+    if (!summary || !text) return;
+    
+    if (filterData.start_date && filterData.end_date) {
+        var startDate = new Date(filterData.start_date);
+        var endDate = new Date(filterData.end_date);
+        
+        var startFormatted = startDate.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        var endFormatted = endDate.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        
+        var daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        
+        text.textContent = 'Showing data from ' + startFormatted + ' to ' + endFormatted + ' (' + daysDiff + ' days)';
+        summary.style.display = 'block';
+        
+        // Add fade-in animation
+        summary.style.opacity = '0';
+        summary.style.transform = 'translateY(-10px)';
+        setTimeout(function() {
+            summary.style.transition = 'all 0.3s ease';
+            summary.style.opacity = '1';
+            summary.style.transform = 'translateY(0)';
+        }, 10);
+    } else {
+        summary.style.display = 'none';
+    }
+}
+
+function applyFilter() {
+    if (AttendanceApp.state.isLoading) return;
+    
+    try {
+        AttendanceApp.state.isLoading = true;
+        var filterData = getFilterData();
+        
+        if (!validateFilterData(filterData)) {
+            showNotification('Please select valid date range', 'error');
+            return;
+        }
+        
+        AttendanceApp.state.currentFilters = filterData;
+        updateFilterSummary(filterData);
+        
+        // Reload page with new filters
+        var url = new URL(window.location);
+        url.searchParams.set('start_date', filterData.start_date);
+        url.searchParams.set('end_date', filterData.end_date);
+        window.location.href = url.toString();
+        
+    } catch (error) {
+        logger.error('Filter error: ' + error.message);
+        showNotification('Failed to apply filter', 'error');
+    } finally {
+        AttendanceApp.state.isLoading = false;
+    }
+}
+
+// ===========================
+// SYNCHRONIZATION
+// ===========================
+
+async function syncAttendance(fullSync) {
+    if (fullSync === undefined) fullSync = false;
+    
+    if (AttendanceApp.state.syncInProgress) {
+        showNotification('Sync already in progress', 'warning');
+        return;
+    }
+    
+    try {
+        AttendanceApp.state.syncInProgress = true;
+        
+        var modal = document.getElementById('syncModal');
+        var message = document.getElementById('syncMessage');
+        var progress = document.getElementById('syncProgressBar');
+        var progressBar = document.getElementById('progressBar');
+        var form = document.getElementById('rangeSyncForm');
+        
+        // Setup modal
+        if (form) form.style.display = 'none';
+        if (progress) progress.style.display = 'block';
+        
+        var fullSyncBtn = document.getElementById('fullSyncBtn');
+        var originalHTML = updateSyncButton(fullSyncBtn, true);
+        
+        updateModalTitle(fullSync ? 'Full Month Synchronization' : 'Synchronizing Attendance');
+        if (modal) modal.style.display = 'flex';
+        
+        if (message) {
+            message.textContent = fullSync 
+                ? 'Fetching full month data from biometric system...' 
+                : 'Fetching recent data from biometric system...';
+            message.style.color = 'var(--text-primary)';
+        }
+        
+        var progressInterval = startProgressAnimation(progressBar, fullSync);
+        
+        // Make API call
+        var endpoint = '/biometric/employee/' + AttendanceApp.config.employeeId + '/sync';
+        if (fullSync) {
+            endpoint += '?force_full=true';
+        }
+        
+        var response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        var result = await response.json();
+        
+        clearInterval(progressInterval);
+        if (progressBar) progressBar.style.width = '100%';
+        
+        await handleSyncResult(result, message, fullSync);
+        
+        if (fullSyncBtn) {
+            fullSyncBtn.innerHTML = originalHTML;
+            fullSyncBtn.disabled = false;
+        }
+        
+    } catch (error) {
+        handleSyncError(error);
+    } finally {
+        AttendanceApp.state.syncInProgress = false;
+    }
+}
+
+function updateSyncButton(button, isLoading) {
+    if (!button) return '';
+    
+    var originalHTML = button.innerHTML;
+    
+    if (isLoading) {
+        button.innerHTML = '<div class="sync-spinner"></div>Syncing...';
+        button.disabled = true;
+    }
+    
+    return originalHTML;
+}
+
+function startProgressAnimation(progressBar, fullSync) {
+    if (!progressBar) return null;
+    
+    var progressValue = 0;
+    return setInterval(function() {
+        progressValue += Math.random() * (fullSync ? 8 : 15);
+        if (progressValue > 90) progressValue = 90;
+        progressBar.style.width = progressValue + '%';
+    }, AttendanceApp.config.progressUpdateInterval);
+}
+
+async function handleSyncResult(result, messageElement, fullSync) {
+    if (!messageElement) return;
+    
+    if (result.success) {
+        var successMsg = '✅ ' + (fullSync ? 'Full sync' : 'Sync') + ' completed successfully!<br>';
+        successMsg += '<small style="color: var(--text-secondary);">';
+        successMsg += (result.records_fetched || 0) + ' records fetched, ';
+        successMsg += (result.records_saved || 0) + ' new records saved, ';
+        successMsg += (result.days_processed || 0) + ' days processed';
+        successMsg += '</small>';
+        
+        messageElement.innerHTML = successMsg;
+        messageElement.style.color = 'var(--success-color)';
+        
+        showNotification('Sync completed successfully!', 'success');
+        
+        setTimeout(function() {
+            window.location.reload();
+        }, 2500);
+        
+    } else {
+        messageElement.textContent = '❌ Sync failed: ' + result.message;
+        messageElement.style.color = 'var(--error-color)';
+        showNotification('Sync failed: ' + result.message, 'error');
+    }
+}
+
+// ===========================
+// RANGE SYNC
+// ===========================
+
+function initializeYearDropdowns() {
+    var startYearSelect = document.getElementById('startYear');
+    var endYearSelect = document.getElementById('endYear');
+    
+    if (!startYearSelect || !endYearSelect) return;
+    
+    startYearSelect.innerHTML = '';
+    endYearSelect.innerHTML = '';
+    
+    for (var year = AttendanceApp.config.startYear; year <= AttendanceApp.config.endYear; year++) {
+        var startOption = new Option(year, year);
+        var endOption = new Option(year, year);
+        
+        if (year === AttendanceApp.config.currentYear) {
+            startOption.selected = true;
+            endOption.selected = true;
+        }
+        
+        startYearSelect.add(startOption);
+        endYearSelect.add(endOption);
+    }
+}
+
+function initializeRangeSync() {
+    var elements = {
+        startMonth: document.getElementById('startMonth'),
+        endMonth: document.getElementById('endMonth'),
+        startYear: document.getElementById('startYear'),
+        endYear: document.getElementById('endYear')
+    };
+    
+    var currentMonth = new Date().getMonth() + 1;
+    if (elements.startMonth) elements.startMonth.value = currentMonth;
+    if (elements.endMonth) elements.endMonth.value = currentMonth;
+    
+    Object.keys(elements).forEach(function(key) {
+        var element = elements[key];
+        if (element) {
+            element.addEventListener('change', updateRangeInfo);
+        }
+    });
+    
+    updateRangeInfo();
+}
+
+function updateRangeInfo() {
+    var startMonth = parseInt(document.getElementById('startMonth').value || 0);
+    var endMonth = parseInt(document.getElementById('endMonth').value || 0);
+    var startYear = parseInt(document.getElementById('startYear').value || 0);
+    var endYear = parseInt(document.getElementById('endYear').value || 0);
+    
+    var rangeDescription = document.getElementById('rangeDescription');
+    var confirmBtn = document.getElementById('confirmRangeSyncBtn');
+    
+    if (!rangeDescription || !confirmBtn) return;
+    
+    var validation = validateRangeSync(startMonth, endMonth, startYear, endYear);
+    
+    if (!validation.isValid) {
+        rangeDescription.innerHTML = '<span style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> ' + validation.message + '</span>';
+        confirmBtn.disabled = true;
+        return;
+    }
+    
+    var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+    
+    var startStr = monthNames[startMonth - 1] + ' ' + startYear;
+    var endStr = monthNames[endMonth - 1] + ' ' + endYear;
+    
+    var description = 'Sync from <strong>' + startStr + '</strong> to <strong>' + endStr + '</strong>';
+    description += monthsDiff === 1 ? ' (1 month)' : ' (' + monthsDiff + ' months)';
+    
+    if (monthsDiff > 6) {
+        description += ' <span style="color: #856404;">⚠️ Large range - this may take several minutes</span>';
+    }
+    
+    rangeDescription.innerHTML = description;
+    confirmBtn.disabled = false;
+}
+
+function validateRangeSync(startMonth, endMonth, startYear, endYear) {
+    if (!startMonth || !endMonth || !startYear || !endYear) {
+        return { isValid: false, message: 'Please select all date fields' };
+    }
+    
+    var startDate = new Date(startYear, startMonth - 1, 1);
+    var endDate = new Date(endYear, endMonth, 0);
+    
+    if (startDate > endDate) {
+        return { isValid: false, message: 'End date must be after start date' };
+    }
+    
+    if (startDate > new Date()) {
+        return { isValid: false, message: 'Start date cannot be in the future' };
+    }
+    
+    return { isValid: true };
+}
+
+function openRangeSyncModal() {
+    var modal = document.getElementById('syncModal');
+    var form = document.getElementById('rangeSyncForm');
+    var progress = document.getElementById('syncProgress');
+    
+    if (!modal) return;
+    
+    updateModalTitle('Range Sync - Select Date Range');
+    if (form) form.style.display = 'block';
+    if (progress) progress.style.display = 'none';
+    modal.style.display = 'flex';
+    
+    initializeRangeSync();
+}
+
+async function startRangeSync() {
+    if (AttendanceApp.state.syncInProgress) return;
+    
+    var startMonth = parseInt(document.getElementById('startMonth').value || 0);
+    var endMonth = parseInt(document.getElementById('endMonth').value || 0);
+    var startYear = parseInt(document.getElementById('startYear').value || 0);
+    var endYear = parseInt(document.getElementById('endYear').value || 0);
+    
+    var validation = validateRangeSync(startMonth, endMonth, startYear, endYear);
+    if (!validation.isValid) {
+        showNotification(validation.message, 'error');
+        return;
+    }
+    
+    try {
+        AttendanceApp.state.syncInProgress = true;
+        
+        var startDate = new Date(startYear, startMonth - 1, 1);
+        var endDate = new Date(endYear, endMonth, 0);
+        
+        document.getElementById('rangeSyncForm').style.display = 'none';
+        document.getElementById('syncProgress').style.display = 'block';
+        document.getElementById('syncProgressBar').style.display = 'block';
+        
+        updateModalTitle('Range Sync in Progress');
+        
+        var message = document.getElementById('syncMessage');
+        if (message) {
+            message.textContent = 'Synchronizing attendance data for selected range...';
+            message.style.color = 'var(--text-primary)';
+        }
+        
+        var rangeSyncBtn = document.getElementById('rangeSyncBtn');
+        var originalHTML = updateSyncButton(rangeSyncBtn, true);
+        
+        var progressBar = document.getElementById('progressBar');
+        var progressInterval = startProgressAnimation(progressBar, true);
+        
+        var response = await fetch('/biometric/employee/' + AttendanceApp.config.employeeId + '/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sync_type: 'range',
+                start_date: startDate.toISOString().split('T')[0],
+                end_date: endDate.toISOString().split('T')[0]
+            })
+        });
+        
+        var result = await response.json();
+        
+        clearInterval(progressInterval);
+        if (progressBar) progressBar.style.width = '100%';
+        
+        await handleRangeSyncResult(result, message);
+        
+        if (rangeSyncBtn) {
+            rangeSyncBtn.innerHTML = originalHTML;
+            rangeSyncBtn.disabled = false;
+        }
+        
+    } catch (error) {
+        handleSyncError(error);
+    } finally {
+        AttendanceApp.state.syncInProgress = false;
+    }
+}
+
+async function handleRangeSyncResult(result, messageElement) {
+    if (!messageElement) return;
+    
+    if (result.success) {
+        var successMsg = '✅ Range sync completed successfully!<br>';
+        successMsg += '<small style="color: var(--text-secondary);">';
+        successMsg += (result.records_fetched || 0) + ' records fetched, ';
+        successMsg += (result.records_saved || 0) + ' new records saved, ';
+        successMsg += (result.months_processed || 0) + ' months processed';
+        successMsg += '</small>';
+        
+        messageElement.innerHTML = successMsg;
+        messageElement.style.color = 'var(--success-color)';
+        
+        showNotification('Range sync completed successfully!', 'success');
+        setTimeout(function() { window.location.reload(); }, 2500);
+    } else {
+        messageElement.textContent = '❌ Range sync failed: ' + result.message;
+        messageElement.style.color = 'var(--error-color)';
+        showNotification('Range sync failed: ' + result.message, 'error');
+        document.getElementById('syncProgressBar').style.display = 'none';
+    }
+}
+
+// ===========================
+// STATISTICS RECALCULATION
+// ===========================
+
+async function recalculateStats() {
+    if (AttendanceApp.state.isLoading || AttendanceApp.state.syncInProgress) {
+        showNotification('Another operation is in progress', 'warning');
+        return;
+    }
+    
+    try {
+        AttendanceApp.state.isLoading = true;
+        
+        var recalculateBtn = document.getElementById('recalculateBtn');
+        var originalHTML = updateRecalculateButton(recalculateBtn, true);
+        
+        showStatsLoading(true);
+        showNotification('Recalculating statistics from database...', 'info');
+        
+        var filterData = AttendanceApp.state.currentFilters || getFilterData();
+        
+        var requestBody = {
+            action: 'recalculate_stats',
+            timestamp: Date.now()
+        };
+        
+        if (filterData.start_date) requestBody.start_date = filterData.start_date;
+        if (filterData.end_date) requestBody.end_date = filterData.end_date;
+        
+        var response = await fetch('/biometric/employee/' + AttendanceApp.config.employeeId + '/recalculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+        
+        if (!response.ok) {
+            var errorText = await response.text();
+            throw new Error('Server error: ' + response.status + ' - ' + errorText);
+        }
+        
+        var result = await response.json();
+        
+        if (result.success) {
+            await updateStatsWithAnimation(result.summary);
+            
+            var message = 'Stats recalculated successfully!';
+            if (result.records_analyzed) {
+                message += ' Analyzed ' + result.records_analyzed + ' records.';
+            }
+            showNotification(message, 'success');
+            
+        } else {
+            throw new Error(result.message || 'Stats recalculation failed');
+        }
+        
+        if (recalculateBtn) {
+            recalculateBtn.innerHTML = originalHTML;
+            recalculateBtn.disabled = false;
+        }
+        
+    } catch (error) {
+        logger.error('Recalculate stats error: ' + error.message);
+        showNotification('Recalculation failed: ' + error.message, 'error');
+        
+        var recalculateBtn = document.getElementById('recalculateBtn');
+        if (recalculateBtn) {
+            recalculateBtn.innerHTML = '<i class="fas fa-calculator"></i> Recalculate Stats';
+            recalculateBtn.disabled = false;
+        }
+    } finally {
+        AttendanceApp.state.isLoading = false;
+        showStatsLoading(false);
+    }
+}
+
+function updateRecalculateButton(button, isLoading) {
+    if (!button) return '';
+    
+    var originalHTML = button.innerHTML;
+    
+    if (isLoading) {
+        button.innerHTML = '<div class="loading-spinner"></div>Calculating...';
+        button.disabled = true;
+    }
+    
+    return originalHTML;
+}
+
+function showStatsLoading(show) {
+    document.querySelectorAll('.stat-loading').forEach(function(loader) {
+        loader.style.display = show ? 'flex' : 'none';
+    });
+    
+    document.querySelectorAll('.stat-card').forEach(function(card) {
+        if (show) {
+            card.style.opacity = '0.7';
+            card.style.transform = 'scale(0.98)';
+        } else {
+            card.style.opacity = '1';
+            card.style.transform = 'scale(1)';
+        }
+    });
+}
+
+async function updateStatsWithAnimation(summary) {
+    var animations = [
+        animateNumber('attendance-rate', summary.attendance_percentage, '%', 1),
+        animateNumber('present-days', summary.present_days),
+        animateNumber('late-days', summary.late_days),
+        animateNumber('total-hours', summary.total_hours, 'h', 1)
+    ];
+    
+    var progressBar = document.querySelector('.stat-card.primary .progress-bar');
+    if (progressBar) {
+        setTimeout(function() {
+            progressBar.style.width = summary.attendance_percentage + '%';
+        }, 200);
+    }
+    
+    updateTrendIndicators(summary);
+    
+    await Promise.all(animations);
+}
+
+function animateNumber(elementId, targetValue, suffix, decimals) {
+    suffix = suffix || '';
+    decimals = decimals || 0;
+    
+    return new Promise(function(resolve) {
+        var element = document.getElementById(elementId);
+        if (!element) {
+            resolve();
+            return;
+        }
+        
+        var startValue = parseFloat(element.textContent) || 0;
+        var increment = (targetValue - startValue) / 30;
+        var currentValue = startValue;
+        var steps = 0;
+        
+        var timer = setInterval(function() {
+            currentValue += increment;
+            steps++;
+            
+            if (steps >= 30 || 
+                (increment > 0 && currentValue >= targetValue) || 
+                (increment < 0 && currentValue <= targetValue)) {
+                currentValue = targetValue;
+                clearInterval(timer);
+                resolve();
+            }
+            
+            element.textContent = currentValue.toFixed(decimals) + suffix;
+        }, AttendanceApp.config.animationDuration / 30);
+    });
+}
+
+function updateTrendIndicators(summary) {
+    var attendanceTrend = document.getElementById('attendance-trend');
+    if (attendanceTrend) {
+        if (summary.attendance_percentage >= 90) {
+            attendanceTrend.innerHTML = '<i class="fas fa-arrow-up" style="color: green;"></i> Excellent';
+        } else if (summary.attendance_percentage >= 75) {
+            attendanceTrend.innerHTML = '<i class="fas fa-arrow-right" style="color: orange;"></i> Good';
+        } else {
+            attendanceTrend.innerHTML = '<i class="fas fa-arrow-down" style="color: red;"></i> Needs improvement';
+        }
+    }
+    
+    var hoursTrend = document.getElementById('hours-trend');
+    if (hoursTrend) {
+        var expectedHours = summary.present_days * 8;
+        if (summary.total_hours >= expectedHours * 0.9) {
+            hoursTrend.innerHTML = '<i class="fas fa-check" style="color: green;"></i> On track';
+        } else {
+            hoursTrend.innerHTML = '<i class="fas fa-clock" style="color: orange;"></i> Below expected';
+        }
+    }
+}
+
+// ===========================
+// REPORT GENERATION
+// ===========================
+
+function openReportModal() {
+    var modal = document.getElementById('reportModal');
+    var form = document.getElementById('reportForm');
+    var generating = document.getElementById('reportGenerating');
+    
+    form.style.display = 'flex';
+    generating.style.display = 'none';
+    
+    var startDateInput = document.getElementById('filter_start_date');
+    var endDateInput = document.getElementById('filter_end_date');
+    
+    if (startDateInput && startDateInput.value && endDateInput && endDateInput.value) {
+        document.getElementById('reportStartDate').value = startDateInput.value;
+        document.getElementById('reportEndDate').value = endDateInput.value;
+    } else {
+        var dates = calculateDateRange('current-month');
+        document.getElementById('reportStartDate').value = formatDateForInput(dates.startDate);
+        document.getElementById('reportEndDate').value = formatDateForInput(dates.endDate);
+    }
+    
+    updateReportRangeInfo();
+    modal.style.display = 'flex';
+    
+    document.getElementById('reportStartDate').addEventListener('change', updateReportRangeInfo);
+    document.getElementById('reportEndDate').addEventListener('change', updateReportRangeInfo);
+}
+
+function setReportQuickRange(period) {
+    document.querySelectorAll('.report-quick-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+        if (btn.dataset.range === period) {
+            btn.classList.add('active');
+        }
+    });
+    
+    var dates = calculateDateRange(period);
+    
+    document.getElementById('reportStartDate').value = formatDateForInput(dates.startDate);
+    document.getElementById('reportEndDate').value = formatDateForInput(dates.endDate);
+    
+    updateReportRangeInfo();
+}
+
+function updateReportRangeInfo() {
+    var startDate = document.getElementById('reportStartDate').value;
+    var endDate = document.getElementById('reportEndDate').value;
+    
+    var rangeInfo = document.getElementById('reportRangeInfo');
+    var rangeDescription = document.getElementById('reportRangeDescription');
+    var generateBtn = document.getElementById('generateReportBtn');
+    
+    if (!startDate || !endDate) {
+        rangeInfo.style.display = 'none';
+        return;
+    }
+    
+    var start = new Date(startDate);
+    var end = new Date(endDate);
+    
+    if (end < start) {
+        rangeDescription.innerHTML = '<span style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> End date must be after start date</span>';
+        rangeInfo.style.background = '#f8d7da';
+        rangeInfo.style.color = '#721c24';
+        generateBtn.disabled = true;
+        rangeInfo.style.display = 'block';
+        return;
+    }
+    
+    if (start > new Date()) {
+        rangeDescription.innerHTML = '<span style="color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> Start date cannot be in the future</span>';
+        rangeInfo.style.background = '#f8d7da';
+        rangeInfo.style.color = '#721c24';
+        generateBtn.disabled = true;
+        rangeInfo.style.display = 'block';
+        return;
+    }
+    
+    var daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    
+    var startStr = start.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+    var endStr = end.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+    
+    var description = 'Report from <strong>' + startStr + '</strong> to <strong>' + endStr + '</strong> (' + daysDiff + ' days)';
+    
+    if (daysDiff > 365) {
+        description += ' <span style="color: #856404;">⚠️ Large range - report may take longer to generate</span>';
+    }
+    
+    rangeDescription.innerHTML = description;
+    rangeInfo.style.background = '#e3f2fd';
+    rangeInfo.style.color = '#1976d2';
+    rangeInfo.style.display = 'block';
+    generateBtn.disabled = false;
+}
+
+async function generateAttendanceReport() {
+    var startDate = document.getElementById('reportStartDate').value;
+    var endDate = document.getElementById('reportEndDate').value;
+    
+    if (!startDate || !endDate) {
+        showNotification('Please select both start and end dates', 'error');
+        return;
+    }
+    
+    var start = new Date(startDate);
+    var end = new Date(endDate);
+    
+    if (end < start) {
+        showNotification('End date must be after start date', 'error');
+        return;
+    }
+    
+    if (start > new Date()) {
+        showNotification('Start date cannot be in the future', 'error');
+        return;
+    }
+    
+    var form = document.getElementById('reportForm');
+    var generating = document.getElementById('reportGenerating');
+    var progressBar = document.getElementById('reportProgressBar');
+    
+    // Show loading state
+    form.style.display = 'none';
+    generating.style.display = 'block';
+    
+    // Animate progress bar
+    var progress = 0;
+    var progressInterval = setInterval(function() {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        progressBar.style.width = progress + '%';
+    }, 300);
+    
+    try {
+        showNotification('Generating attendance report...', 'info');
+        
+        // Send as JSON instead of FormData
+        var response = await fetch('/biometric/employee/' + AttendanceApp.config.employeeId + '/report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate
+            })
+        });
+        
+        if (!response.ok) {
+            // Try to get error details from response
+            var errorMessage = 'Server error: ' + response.status;
+            try {
+                var errorData = await response.json();
+                if (errorData.detail) {
+                    errorMessage = errorData.detail;
+                }
+            } catch (e) {
+                // If response isn't JSON, try text
+                try {
+                    var errorText = await response.text();
+                    if (errorText) {
+                        errorMessage = errorText;
+                    }
+                } catch (e2) {
+                    // Use default error message
+                }
+            }
+            throw new Error(errorMessage);
+        }
+        
+        // Complete progress
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        
+        // Download the PDF
+        var blob = await response.blob();
+        var url = window.URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        
+        // Generate filename
+        var startFormatted = start.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).replace(/[\s,]/g, '_');
+        var endFormatted = end.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).replace(/[\s,]/g, '_');
+        
+        var filename = 'Attendance_Report_{{ employee.first_name }}_{{ employee.last_name }}_' + startFormatted + '_to_' + endFormatted + '.pdf';
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        showNotification('Report downloaded successfully!', 'success');
+        closeReportModal();
+        
+    } catch (error) {
+        clearInterval(progressInterval);
+        logger.error('Report generation error: ' + error.message);
+        showNotification('Report generation failed: ' + error.message, 'error');
+        
+        // Reset modal state
+        form.style.display = 'flex';
+        generating.style.display = 'none';
+        progressBar.style.width = '0%';
+    }
+}
+
+// ===========================
+// UTILITY FUNCTIONS
+// ===========================
+
+function updateModalTitle(title) {
+    var titleElement = document.getElementById('syncModalTitle');
+    if (titleElement) {
+        titleElement.textContent = title;
+    }
+}
+
+function closeSyncModal() {
+    var modal = document.getElementById('syncModal');
+    if (modal) {
+        modal.style.display = 'none';
+        AttendanceApp.state.syncInProgress = false;
+    }
+}
+
+function closeReportModal() {
+    var modal = document.getElementById('reportModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function handleKeydown(e) {
+    if (e.key === 'Escape') {
+        closeSyncModal();
+        closeReportModal();
+    }
+}
+
+function handleWindowClick(e) {
+    var syncModal = document.getElementById('syncModal');
+    var reportModal = document.getElementById('reportModal');
+    
+    if (e.target === syncModal) {
+        closeSyncModal();
+    }
+    if (e.target === reportModal) {
+        closeReportModal();
+    }
+}
+
+function expandDateRange() {
+    var today = new Date();
+    var startDate = new Date(today.getFullYear() - 1, 0, 1);
+    var endDate = today;
+    
+    document.getElementById('filter_start_date').value = formatDateForInput(startDate);
+    document.getElementById('filter_end_date').value = formatDateForInput(endDate);
+    
+    showNotification('Date range expanded to last year', 'info');
+    applyFilter();
+}
+
+function loadCurrentFilters() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var startDate = urlParams.get('start_date');
+    var endDate = urlParams.get('end_date');
+    
+    if (startDate && endDate) {
+        document.getElementById('filter_start_date').value = startDate;
+        document.getElementById('filter_end_date').value = endDate;
+        AttendanceApp.state.currentFilters = { start_date: startDate, end_date: endDate };
+        updateFilterSummary(AttendanceApp.state.currentFilters);
+    }
+}
+
+function updateQuickFilterButtons(activePeriod) {
+    document.querySelectorAll('.quick-filter-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-period') === activePeriod) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+function resetFilters() {
+    applyQuickFilter('current-month');
+}
+
+function updateFilterPreview() {
+    var filterData = getFilterData();
+    if (validateFilterData(filterData)) {
+        updateFilterSummary(filterData);
+    }
+}
+
+function handleSyncError(error) {
+    logger.error('Sync error: ' + error.message);
+    showNotification('Sync failed: ' + error.message, 'error');
+    
+    var syncModal = document.getElementById('syncModal');
+    if (syncModal) {
+        syncModal.style.display = 'none';
+    }
+    
+    var buttons = ['syncBtn', 'fullSyncBtn', 'rangeSyncBtn'];
+    buttons.forEach(function(btnId) {
+        var btn = document.getElementById(btnId);
+        if (btn) {
+            btn.disabled = false;
+            var originalHTML = btn.getAttribute('data-original-html') || btn.innerHTML;
+            btn.innerHTML = originalHTML.replace(/<div class=".*?spinner.*?<\/div>\s*Syncing\.\.\./, '');
+        }
+    });
+}
+
+function showNotification(message, type) {
+    type = type || 'info';
+    
+    var notification = document.getElementById('notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'notification';
+        document.body.appendChild(notification);
+    }
+    
+    var colors = {
+        success: '#10b981',
+        error: '#ef4444',
+        warning: '#f59e0b',
+        info: '#3b82f6'
+    };
+    
+    notification.style.backgroundColor = colors[type] || colors.info;
+    notification.textContent = message;
+    
+    notification.style.transform = 'translateX(0)';
+    
+    setTimeout(function() {
+        notification.style.transform = 'translateX(100%)';
+    }, 3000);
+}
+
+function debounce(func, wait) {
+    var timeout;
+    return function executedFunction() {
+        var context = this;
+        var args = arguments;
+        var later = function() {
+            clearTimeout(timeout);
+            func.apply(context, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// ===========================
+// ERROR HANDLING
+// ===========================
+
+window.addEventListener('unhandledrejection', function(event) {
+    logger.error('Unhandled promise rejection: ' + event.reason);
+    showNotification('An unexpected error occurred', 'error');
+    event.preventDefault();
+});
+
+window.addEventListener('error', function(event) {
+    logger.error('JavaScript error: ' + event.error);
+});
+
+// ===========================
+// CONSOLE BRANDING
+// ===========================
+
+console.log(
+'%c🎯 Attendance Management System v2.0\n%cProduction Ready\n%cKeyboard Shortcuts:\n  Alt+1: Current Month\n  Alt+2: Last Month\n  Alt+3: Last 3 Months\n  Alt+F: Full Sync\n  Alt+R: Range Sync\n  Alt+C: Recalculate Stats',
+'color: #6b1e1e; font-size: 16px; font-weight: bold;',
+'color: #28a745; font-size: 12px;',
+'color: #999; font-size: 11px; font-family: monospace;'
+);
+</script>
+{% endblock %}

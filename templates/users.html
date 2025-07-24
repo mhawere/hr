@@ -1,0 +1,766 @@
+{% extends "base.html" %}
+
+{% block title %}Users Management - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="users-container">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-users"></i> Users Management</h1>
+
+        </div>
+        <div class="header-actions">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <i class="fas fa-plus"></i> Add User
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ total_users }}</h3>
+                <p>Total Users</p>
+            </div>
+        </div>
+        
+        <div class="stat-card success">
+            <div class="stat-icon">
+                <i class="fas fa-user-check"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="activeUsersCount">{{ users | selectattr("is_active") | list | length }}</h3>
+                <p>Active Users</p>
+            </div>
+        </div>
+        
+        <div class="stat-card warning">
+            <div class="stat-icon">
+                <i class="fas fa-user-times"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="inactiveUsersCount">{{ users | rejectattr("is_active") | list | length }}</h3>
+                <p>Inactive Users</p>
+            </div>
+        </div>
+        
+        <div class="stat-card info">
+            <div class="stat-icon">
+                <i class="fas fa-list"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ start_index }}-{{ end_index }}</h3>
+                <p>of {{ total_users }} Users</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="card modern">
+        <div class="card-header">
+            <h3><i class="fas fa-search"></i> Search and Filter Users</h3>
+        </div>
+        <div class="form-section">
+            <form method="get" class="form-grid">
+                <div class="form-group">
+                    <input type="text" class="form-control" name="search" 
+                           placeholder="Search by username or email..." value="{{ search }}">
+                </div>
+                <div class="form-group">
+                    <select class="form-control" name="per_page">
+                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10 per page</option>
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25 per page</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50 per page</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100 per page</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="table-container">
+        <div class="table-header">
+            <h3><i class="fas fa-table"></i> System Users</h3>
+        </div>
+        
+        {% if users %}
+        <div class="table-responsive">
+            <table class="data-table" id="usersTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user_item in users %}
+                    <tr id="user-row-{{ user_item.id }}">
+                        <td>
+                            <span class="employee-id-badge">{{ user_item.id }}</span>
+                        </td>
+                        <td>
+                            <strong>{{ user_item.username }}</strong>
+                            {% if user_item.id == user.id %}
+                            <span class="status-badge status-active">You</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user_item.email }}</td>
+                        <td>
+                            <span class="status-badge {{ 'status-active' if user_item.is_active else 'status-not-active' }}">
+                                {{ 'Active' if user_item.is_active else 'Inactive' }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if user_item.created_at %}
+                            {{ user_item.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                            N/A
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button type="button" class="btn btn-sm btn-info edit-user-btn" 
+                                        data-user-id="{{ user_item.id }}" title="Edit User">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-warning change-password-btn" 
+                                        data-user-id="{{ user_item.id }}" title="Change Password">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                {% if user_item.id != user.id %}
+                                <button type="button" class="btn btn-sm btn-{{ 'secondary' if user_item.is_active else 'success' }} toggle-status-btn" 
+                                        data-user-id="{{ user_item.id }}" title="Toggle Status">
+                                    <i class="fas fa-{{ 'toggle-off' if user_item.is_active else 'toggle-on' }}"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger delete-user-btn" 
+                                        data-user-id="{{ user_item.id }}" data-username="{{ user_item.username }}" title="Delete User">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <nav aria-label="Users pagination" class="pagination-container">
+            <ul class="pagination">
+                {% if has_prev %}
+                <li class="page-item">
+                    <a class="btn btn-sm btn-secondary" href="?page={{ page - 1 }}{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for page_num in range(1, total_pages + 1) %}
+                {% if page_num == page %}
+                <li class="page-item active">
+                    <span class="btn btn-sm btn-primary">{{ page_num }}</span>
+                </li>
+                {% elif page_num == 1 or page_num == total_pages or (page_num >= page - 2 and page_num <= page + 2) %}
+                <li class="page-item">
+                    <a class="btn btn-sm btn-secondary" href="?page={{ page_num }}{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}">
+                        {{ page_num }}
+                    </a>
+                </li>
+                {% elif page_num == page - 3 or page_num == page + 3 %}
+                <li class="page-item disabled">
+                    <span class="btn btn-sm">...</span>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if has_next %}
+                <li class="page-item">
+                    <a class="btn btn-sm btn-secondary" href="?page={{ page + 1 }}{% if search %}&search={{ search }}{% endif %}&per_page={{ per_page }}">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-users"></i>
+            <h4>No users found</h4>
+            <p>
+                {% if search %}
+                No users match your search criteria. Try adjusting your search terms.
+                {% else %}
+                There are no users in the system yet.
+                {% endif %}
+            </p>
+            {% if not search %}
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <i class="fas fa-plus"></i> Add First User
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="form-card modern">
+                <div class="form-header">
+                    <h2><i class="fas fa-user-plus"></i> Add New User</h2>
+                    <p>Create a new user account</p>
+                </div>
+                <form id="addUserForm">
+                    <div class="form-section">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="addUsername">Username *</label>
+                                <input type="text" id="addUsername" name="username" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="addEmail">Email *</label>
+                                <input type="email" id="addEmail" name="email" required>
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="addPassword">Password *</label>
+                                <input type="password" id="addPassword" name="password" required minlength="6">
+                                <small>Password must be at least 6 characters long.</small>
+                            </div>
+                            <div class="form-group full-width">
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" id="addIsActive" name="is_active" value="true">
+                                    <label class="checkbox-label" for="addIsActive">
+                                        <span class="checkbox-custom"></span>
+                                        Active (user can log in)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add User
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="form-card modern">
+                <div class="form-header">
+                    <h2><i class="fas fa-user-edit"></i> Edit User</h2>
+                    <p>Update user information</p>
+                </div>
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId" name="user_id">
+                    <div class="form-section">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="editUsername">Username *</label>
+                                <input type="text" id="editUsername" name="username" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editEmail">Email *</label>
+                                <input type="email" id="editEmail" name="email" required>
+                            </div>
+                            <div class="form-group full-width">
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" id="editIsActive" name="is_active" value="true">
+                                    <label class="checkbox-label" for="editIsActive">
+                                        <span class="checkbox-custom"></span>
+                                        Active (user can log in)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update User
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="form-card modern">
+                <div class="form-header">
+                    <h2><i class="fas fa-key"></i> Change Password</h2>
+                    <p>Update user password</p>
+                </div>
+                <form id="changePasswordForm">
+                    <input type="hidden" id="changePasswordUserId" name="user_id">
+                    <div class="form-section">
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="changePasswordUsername">Username</label>
+                                <input type="text" id="changePasswordUsername" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="newPassword">New Password *</label>
+                                <input type="password" id="newPassword" name="new_password" required minlength="6">
+                                <small>Password must be at least 6 characters long.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmPassword">Confirm Password *</label>
+                                <input type="password" id="confirmPassword" required minlength="6">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-key"></i> Change Password
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="form-card modern">
+                <div class="form-header">
+                    <h2><i class="fas fa-trash"></i> Delete User</h2>
+                    <p>This action cannot be undone</p>
+                </div>
+                <div class="form-section">
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Are you sure you want to delete the user <strong id="deleteUsername"></strong>?</span>
+                    </div>
+                    <input type="hidden" id="deleteUserId">
+                </div>
+                <div class="form-section">
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                            <i class="fas fa-trash"></i> Delete User
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include the original JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add User Form
+    document.getElementById('addUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch('/users/add', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                document.getElementById('addUserModal').style.display = 'none';
+                location.reload();
+            } else {
+                showAlert('error', data.message);
+            }
+        })
+        .catch(error => {
+            showAlert('error', 'An error occurred while adding the user');
+        });
+    });
+
+    // Edit User Buttons
+    document.querySelectorAll('.edit-user-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            
+            fetch(`/users/${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const user = data.user;
+                    document.getElementById('editUserId').value = user.id;
+                    document.getElementById('editUsername').value = user.username;
+                    document.getElementById('editEmail').value = user.email;
+                    document.getElementById('editIsActive').checked = user.is_active;
+                    
+                    document.getElementById('editUserModal').style.display = 'block';
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                showAlert('error', 'An error occurred while loading user data');
+            });
+        });
+    });
+
+    // Edit User Form
+    document.getElementById('editUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const userId = document.getElementById('editUserId').value;
+        const formData = new FormData(this);
+        
+        fetch(`/users/${userId}/edit`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                document.getElementById('editUserModal').style.display = 'none';
+                location.reload();
+            } else {
+                showAlert('error', data.message);
+            }
+        })
+        .catch(error => {
+            showAlert('error', 'An error occurred while updating the user');
+        });
+    });
+
+    // Change Password Buttons
+    document.querySelectorAll('.change-password-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            
+            fetch(`/users/${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const user = data.user;
+                    document.getElementById('changePasswordUserId').value = user.id;
+                    document.getElementById('changePasswordUsername').value = user.username;
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                    
+                    document.getElementById('changePasswordModal').style.display = 'block';
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                showAlert('error', 'An error occurred while loading user data');
+            });
+        });
+    });
+
+    // Change Password Form
+    document.getElementById('changePasswordForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (newPassword !== confirmPassword) {
+            showAlert('error', 'Passwords do not match');
+            return;
+        }
+        
+        const userId = document.getElementById('changePasswordUserId').value;
+        const formData = new FormData(this);
+        
+        fetch(`/users/${userId}/change-password`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                document.getElementById('changePasswordModal').style.display = 'none';
+            } else {
+                showAlert('error', data.message);
+            }
+        })
+        .catch(error => {
+            showAlert('error', 'An error occurred while changing the password');
+        });
+    });
+
+    // Toggle Status Buttons
+    document.querySelectorAll('.toggle-status-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            
+            fetch(`/users/${userId}/toggle-status`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message);
+                    location.reload();
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                showAlert('error', 'An error occurred while updating user status');
+            });
+        });
+    });
+
+    // Delete User Buttons
+    document.querySelectorAll('.delete-user-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            const username = this.dataset.username;
+            
+            document.getElementById('deleteUserId').value = userId;
+            document.getElementById('deleteUsername').textContent = username;
+            
+            document.getElementById('deleteUserModal').style.display = 'block';
+        });
+    });
+
+    // Confirm Delete
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        const userId = document.getElementById('deleteUserId').value;
+        
+        fetch(`/users/${userId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                document.getElementById('deleteUserModal').style.display = 'none';
+                location.reload();
+            } else {
+                showAlert('error', data.message);
+            }
+        })
+        .catch(error => {
+            showAlert('error', 'An error occurred while deleting the user');
+        });
+    });
+
+    function showAlert(type, message) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+        const alertHtml = `
+            <div class="alert ${alertClass}" role="alert">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <span>${message}</span>
+                <button type="button" class="alert-close" onclick="this.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        const container = document.querySelector('.users-container');
+        container.insertAdjacentHTML('afterbegin', alertHtml);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            const alert = container.querySelector('.alert');
+            if (alert) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+
+    // Modal functionality (since you may not be using Bootstrap JS)
+    document.querySelectorAll('[data-bs-toggle="modal"]').forEach(trigger => {
+        trigger.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-bs-target');
+            const modal = document.querySelector(targetId);
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(closeBtn => {
+        closeBtn.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+
+    // Close modal when clicking outside
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
+
+<style>
+/* Additional styles for users page */
+.users-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.pagination-container {
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.page-item {
+    display: flex;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-dialog {
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-content {
+    position: relative;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.alert-close {
+    background: none;
+    border: none;
+    color: inherit;
+    padding: 0.25rem;
+    margin-left: auto;
+    cursor: pointer;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+}
+
+/* Responsive design for users page */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .action-buttons {
+        flex-wrap: wrap;
+    }
+    
+    .data-table {
+        font-size: 0.85rem;
+    }
+    
+    .data-table th:nth-child(5),
+    .data-table td:nth-child(5) {
+        display: none;
+    }
+    
+    .modal-dialog {
+        width: 95%;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .data-table th:nth-child(1),
+    .data-table td:nth-child(1),
+    .data-table th:nth-child(4),
+    .data-table td:nth-child(4) {
+        display: none;
+    }
+}
+</style>
+{% endblock %}

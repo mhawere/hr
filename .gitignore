@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyd
+*.pyo
+*.so
+venv/
+hrvenv/
+
+# Database and backups
+*.db
+*.db-shm
+*.db-wal
+database_backups/
+hr_database_analysis*.json
+hr_database_analysis.json
+hr_system.db*
+backup_*.log
+db_migration_*.log
+
+# Logs
+*.log
+ai_system.log
+uvicorn.log
+logs/
+
+# Environment and configuration
+.env
+.env.local
+.env.*
+hr_ai_context.json
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Development files that shouldn't be committed
+ID_template.pdf
+frontend_update.js  # If this is generated
+sample_data/        # If this contains test data
+
+# Migration files (if they're generated)
+migrations/
+
+# Virtual environment
+venv/
+hrvenv/
+
+# Python package management
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Service-related files to exclude (add more patterns as needed)
+services/*.log
+services/tests/
+services/__pycache__/

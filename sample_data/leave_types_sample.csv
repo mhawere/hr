@@ -1,0 +1,7 @@
+id,name,max_days_per_year,color,description,is_active,created_at
+1,Annual Leave,30.0,#3B82F6,Annual vacation leave,1,2025-06-24T13:16:15.967047
+2,Sick Leave,14.0,#EF4444,Medical leave for illness,1,2025-06-24T13:16:15.967558
+3,Personal Leave,10.0,#8B5CF6,Personal time off,1,2025-06-24T13:16:15.967633
+4,Maternity Leave,90.0,#EC4899,Maternity leave,1,2025-06-24T13:16:15.967688
+5,Paternity Leave,14.0,#06B6D4,Paternity leave,1,2025-06-24T13:16:15.967736
+6,Emergency Leave,5.0,#F59E0B,Emergency situations,1,2025-06-24T13:16:15.967783

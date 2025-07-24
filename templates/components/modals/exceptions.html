@@ -1,0 +1,63 @@
+<!-- Enhanced Exception Form Modal -->
+<div id="exceptionFormModal" class="modal" role="dialog" aria-labelledby="exceptionFormTitle" aria-hidden="true">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 id="exceptionFormTitle">
+                <i class="fas fa-shield-alt" aria-hidden="true"></i> Add Attendance Exception
+            </h4>
+            <button onclick="hideExceptionForm()" class="modal-close" aria-label="Close modal" type="button">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <div class="exception-date-info">
+                <p><strong>Date:</strong> <span id="exceptionDateDisplay"></span></p>
+            </div>
+            
+            <!-- Remove onsubmit from form tag -->
+            <form id="exceptionForm">
+                <div class="form-group">
+                    <label for="exceptionReason">Reason for Exception <span class="required">*</span></label>
+                    <textarea id="exceptionReason" 
+                             class="form-control" 
+                             rows="4"
+                             placeholder="Enter detailed reason for this attendance exception..." 
+                             required 
+                             minlength="5" 
+                             maxlength="500"></textarea>
+                    <div class="form-help">
+                        <small class="text-muted">Minimum 5 characters required</small>
+                        <span class="char-counter"><span id="reasonCharCount">0</span>/500</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="exceptionCategory">Category (Optional)</label>
+                    <select id="exceptionCategory" class="form-control">
+                        <option value="">Select category...</option>
+                        <option value="medical">Medical Emergency</option>
+                        <option value="family">Family Emergency</option>
+                        <option value="transport">Transportation Issues</option>
+                        <option value="system">System/Technical Issues</option>
+                        <option value="approved">Pre-approved Absence</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="info-note">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                    <strong>Note:</strong> Adding an exception will count this day as 100% attendance 
+                    regardless of late arrival, early departure, or absence.
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" onclick="hideExceptionForm()" class="btn btn-outline">
+                        <i class="fas fa-times" aria-hidden="true"></i> Cancel
+                    </button>
+                    <button type="button" onclick="submitExceptionForm()" class="btn btn-warning" id="submitExceptionBtn">
+                        <i class="fas fa-shield-alt" aria-hidden="true"></i> Add Exception
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

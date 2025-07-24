@@ -1,0 +1,526 @@
+{% extends "base.html" %}
+
+{% block title %}Public Holidays - HR Management System{% endblock %}
+
+{% block page_title %}Public Holidays{% endblock %}
+
+{% block content %}
+<div class="content">
+
+
+    <!-- Stats Cards using existing theme -->
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="totalCount">0</h3>
+                <p>Total Holidays</p>
+            </div>
+        </div>
+        
+        <div class="stat-card success">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-week"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="thisYearCount">0</h3>
+                <p>This Year</p>
+            </div>
+        </div>
+        
+        <div class="stat-card info">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-plus"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="upcomingCount">0</h3>
+                <p>Upcoming</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls using existing theme -->
+    <div class="form-card modern">
+        <div class="form-section">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Search Holidays</label>
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search holidays...">
+                </div>
+                
+                <div class="form-group">
+                    <label>Filter by Year</label>
+                    <select id="yearSelect" class="form-control">
+                        <option value="">All Years</option>
+                        <option value="2024">2024</option>
+                        <option value="2025" selected>2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <button class="btn btn-primary" id="addBtn">
+                        <i class="fas fa-plus"></i> Add Holiday
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Holidays Table using existing theme -->
+    <div class="table-container">
+        <div class="table-header">
+            <h3><i class="fas fa-list"></i> Holidays List</h3>
+        </div>
+        
+        <div id="holidaysList">
+            <!-- Loading state -->
+            <div class="empty-state" id="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <h4>Loading holidays...</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Simple Modal using existing theme -->
+<div id="holidayModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+    <div class="form-card modern" style="width: 90%; max-width: 500px; margin: 0;">
+        <div class="form-section">
+            <h3 id="modalTitle">Add Holiday</h3>
+            
+            <form id="holidayForm">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label>Holiday Date *</label>
+                        <input type="date" id="holidayDate" required>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label>Holiday Name *</label>
+                        <input type="text" id="holidayName" placeholder="e.g., Christmas Day" required>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label>Description</label>
+                        <textarea id="holidayDescription" rows="3" placeholder="Optional description..."></textarea>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="isActive" checked>
+                            <label for="isActive">Active Holiday</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group full-width" style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()" style="flex: 1;">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 1;">Save Holiday</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Message container -->
+<div id="messageContainer" style="position: fixed; top: 20px; right: 20px; z-index: 2000;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Simple global variables
+let holidays = [];
+let filteredHolidays = [];
+let isEditing = false;
+let editingId = null;
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadHolidays();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    document.getElementById('addBtn').addEventListener('click', openAddModal);
+    document.getElementById('searchInput').addEventListener('input', filterHolidays);
+    document.getElementById('yearSelect').addEventListener('change', filterHolidays);
+    document.getElementById('holidayForm').addEventListener('submit', saveHoliday);
+    
+    // Close modal when clicking outside
+    document.getElementById('holidayModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+}
+
+// Replace the loadHolidays function
+async function loadHolidays() {
+    showLoading(true);
+    
+    try {
+        // Use the existing endpoint - note: this might need to be updated in your leave router
+        const response = await fetch('/leave/holidays/list'); // You may need to add this endpoint
+        
+        if (response.ok) {
+            const data = await response.json();
+            holidays = data.holidays || [];
+        } else {
+            // Use mock data for now
+            holidays = [
+                {
+                    id: 1,
+                    date: '2025-01-01',
+                    name: 'New Year\'s Day',
+                    description: 'Start of the new year',
+                    is_active: true
+                },
+                {
+                    id: 2,
+                    date: '2025-12-25',
+                    name: 'Christmas Day',
+                    description: 'Christian holiday',
+                    is_active: true
+                },
+                {
+                    id: 3,
+                    date: '2025-07-04',
+                    name: 'Independence Day',
+                    description: 'National independence day',
+                    is_active: true
+                }
+            ];
+        }
+        
+        filterHolidays();
+        updateStats();
+        
+    } catch (error) {
+        console.error('Error loading holidays:', error);
+        // Use mock data as fallback
+        holidays = [
+            {
+                id: 1,
+                date: '2025-01-01',
+                name: 'New Year\'s Day',
+                description: 'Start of the new year',
+                is_active: true
+            },
+            {
+                id: 2,
+                date: '2025-12-25',
+                name: 'Christmas Day',
+                description: 'Christian holiday',
+                is_active: true
+            }
+        ];
+        filterHolidays();
+        updateStats();
+    } finally {
+        showLoading(false);
+    }
+}
+
+function filterHolidays() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const selectedYear = document.getElementById('yearSelect').value;
+    
+    filteredHolidays = holidays.filter(holiday => {
+        const matchesSearch = holiday.name.toLowerCase().includes(searchTerm) ||
+                            (holiday.description && holiday.description.toLowerCase().includes(searchTerm));
+        
+        const matchesYear = !selectedYear || holiday.date.startsWith(selectedYear);
+        
+        return matchesSearch && matchesYear;
+    });
+    
+    renderHolidays();
+}
+
+function renderHolidays() {
+    const container = document.getElementById('holidaysList');
+    
+    if (filteredHolidays.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-calendar-times"></i>
+                <h4>No holidays found</h4>
+                <p>There are no holidays matching your search.</p>
+                <button class="btn btn-primary" onclick="openAddModal()">Add First Holiday</button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort holidays by date
+    filteredHolidays.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    const tableHTML = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Holiday Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filteredHolidays.map(holiday => {
+                    const date = new Date(holiday.date);
+                    const formattedDate = date.toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
+                    
+                    return `
+                        <tr>
+                            <td>
+                                <strong>${formattedDate}</strong><br>
+                                <small style="color: #6c757d;">${date.toLocaleDateString('en-US', { weekday: 'long' })}</small>
+                            </td>
+                            <td><strong>${escapeHtml(holiday.name)}</strong></td>
+                            <td>${holiday.description ? escapeHtml(holiday.description) : '<em style="color: #6c757d;">No description</em>'}</td>
+                            <td>
+                                <span class="status-badge ${holiday.is_active ? 'status-active' : 'status-inactive'}">
+                                    ${holiday.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn btn-sm btn-secondary" onclick="editHoliday(${holiday.id})" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteHoliday(${holiday.id})" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+    
+    container.innerHTML = tableHTML;
+}
+
+function updateStats() {
+    const currentYear = new Date().getFullYear();
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Total holidays
+    document.getElementById('totalCount').textContent = holidays.length;
+    
+    // This year's holidays
+    const thisYear = holidays.filter(h => 
+        h.date.startsWith(currentYear.toString()) && h.is_active
+    ).length;
+    document.getElementById('thisYearCount').textContent = thisYear;
+    
+    // Upcoming holidays
+    const upcoming = holidays.filter(h => 
+        h.date >= today && h.is_active
+    ).length;
+    document.getElementById('upcomingCount').textContent = upcoming;
+}
+
+function openAddModal() {
+    isEditing = false;
+    editingId = null;
+    
+    document.getElementById('modalTitle').textContent = 'Add Holiday';
+    document.getElementById('holidayForm').reset();
+    document.getElementById('isActive').checked = true;
+    
+    // Set minimum date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('holidayDate').min = today;
+    
+    document.getElementById('holidayModal').style.display = 'flex';
+    document.getElementById('holidayName').focus();
+}
+
+function editHoliday(id) {
+    const holiday = holidays.find(h => h.id === id);
+    if (!holiday) return;
+    
+    isEditing = true;
+    editingId = id;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Holiday';
+    document.getElementById('holidayDate').value = holiday.date;
+    document.getElementById('holidayName').value = holiday.name;
+    document.getElementById('holidayDescription').value = holiday.description || '';
+    document.getElementById('isActive').checked = holiday.is_active;
+    
+    document.getElementById('holidayModal').style.display = 'flex';
+    document.getElementById('holidayName').focus();
+}
+
+function closeModal() {
+    document.getElementById('holidayModal').style.display = 'none';
+    document.getElementById('holidayForm').reset();
+    isEditing = false;
+    editingId = null;
+}
+
+async function saveHoliday(e) {
+    e.preventDefault();
+    
+    // Get form values
+    const holidayDate = document.getElementById('holidayDate').value;
+    const holidayName = document.getElementById('holidayName').value.trim();
+    const holidayDescription = document.getElementById('holidayDescription').value.trim();
+    const isActive = document.getElementById('isActive').checked;
+    
+    // Validate required fields
+    if (!holidayDate) {
+        showMessage('Please select a holiday date', 'error');
+        return;
+    }
+    
+    if (!holidayName || holidayName.length < 2) {
+        showMessage('Holiday name must be at least 2 characters long', 'error');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('holiday_date', holidayDate);
+    formData.append('name', holidayName);
+    formData.append('description', holidayDescription);
+    
+    // The endpoint expects is_active as a form field, not a boolean
+    // Only add it if checked (HTML form behavior)
+    if (isActive) {
+        formData.append('is_active', 'on');
+    }
+    
+    showLoading(true);
+    
+    try {
+        let url = '/leave/holidays/add';
+        let method = 'POST';
+        
+        if (isEditing) {
+            // Note: You don't have an update endpoint, so for now we can't edit
+            showMessage('Editing holidays is not yet supported', 'error');
+            showLoading(false);
+            return;
+        }
+        
+        console.log('Sending request to:', url);
+        console.log('Form data:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0], pair[1]);
+        }
+        
+        const response = await fetch(url, {
+            method: method,
+            body: formData
+        });
+        
+        console.log('Response status:', response.status);
+        
+        // Try to parse response as JSON
+        let result;
+        try {
+            result = await response.json();
+        } catch (jsonError) {
+            console.error('Failed to parse JSON response:', jsonError);
+            const text = await response.text();
+            console.error('Response text:', text);
+            throw new Error('Invalid response format from server');
+        }
+        
+        if (response.ok && result.success) {
+            showMessage('Holiday added successfully!', 'success');
+            closeModal();
+            await loadHolidays();
+        } else {
+            console.error('API Error:', result);
+            showMessage(result.message || result.detail || 'Failed to save holiday', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error saving holiday:', error);
+        showMessage('Failed to save holiday. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function deleteHoliday(id) {
+    const holiday = holidays.find(h => h.id === id);
+    if (!holiday) return;
+    
+    const confirmed = confirm(`Are you sure you want to delete "${holiday.name}"?\n\nThis cannot be undone.`);
+    if (!confirmed) return;
+    
+    showLoading(true);
+    
+    try {
+        const response = await fetch(`/leave/holidays/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showMessage('Holiday deleted successfully!', 'success');
+            await loadHolidays();
+        } else {
+            showMessage(result.message || 'Failed to delete holiday', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error deleting holiday:', error);
+        showMessage('Failed to delete holiday. Please try again.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Utility functions
+function showLoading(show) {
+    const loading = document.getElementById('loading');
+    const holidaysList = document.getElementById('holidaysList');
+    
+    if (show) {
+        holidaysList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-spinner fa-spin"></i>
+                <h4>Loading...</h4>
+            </div>
+        `;
+    }
+}
+
+function showMessage(text, type = 'success') {
+    const container = document.getElementById('messageContainer');
+    const messageEl = document.createElement('div');
+    
+    messageEl.className = `alert alert-${type === 'error' ? 'error' : 'success'}`;
+    messageEl.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-circle' : 'check-circle'}"></i>
+        <span>${escapeHtml(text)}</span>
+    `;
+    
+    container.appendChild(messageEl);
+    
+    setTimeout(() => {
+        messageEl.remove();
+    }, 4000);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

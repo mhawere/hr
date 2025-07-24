@@ -1,0 +1,2158 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container full-width">
+    <div class="form-card">
+        <form method="post" enctype="multipart/form-data" class="employee-form" id="employeeForm">
+            <div class="form-section">
+                <h3><i class="fas fa-user"></i> Basic Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="employee_id">Employee ID</label>
+                        <input type="text" id="employee_id" name="employee_id" value="{{ employee.employee_id }}" readonly>
+                        <div class="field-hint">Employee ID cannot be changed</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="first_name">First Name <span class="required">*</span></label>
+                        <input type="text" id="first_name" name="first_name" required 
+                               value="{{ employee.first_name }}"
+                               minlength="2" maxlength="50">
+                        <div class="field-hint">Enter the employee's first name</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="last_name">Last Name <span class="required">*</span></label>
+                        <input type="text" id="last_name" name="last_name" required 
+                               value="{{ employee.last_name }}"
+                               minlength="2" maxlength="50">
+                        <div class="field-hint">Enter the employee's last name</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email Address <span class="required">*</span></label>
+                        <input type="email" id="email" name="email" required 
+                               value="{{ employee.email }}">
+                        <div class="field-hint">This will be used for system access</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone" 
+                               value="{{ employee.phone or '' }}">
+                        <div class="field-hint">Include country code if international</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="biometric_id">
+                            <i class="fas fa-fingerprint"></i>
+                            Biometric ID
+                        </label>
+                        <input type="text" id="biometric_id" name="biometric_id" 
+                            value="{{ employee.biometric_id or '' }}"
+                            pattern="[A-Za-z0-9]{3,20}" 
+                            title="Alphanumeric only, 3-20 characters"
+                            maxlength="20"
+                            placeholder="Enter biometric device ID">
+                        <div class="field-hint">
+                            <i class="fas fa-info-circle"></i>
+                            Unique biometric ID for device mapping (optional)
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="photo">Employee Photo</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="photo" name="photo" accept="image/*" class="file-input">
+                            <div class="file-input-display">
+                                <i class="fas fa-camera"></i>
+                                <span class="file-text">Choose new photo...</span>
+                            </div>
+                        </div>
+                        <div class="field-hint">
+                            <i class="fas fa-info-circle"></i>
+                            Supported: JPG, PNG, GIF, WebP (max 5MB)
+                        </div>
+                        {% if employee.photo %}
+                        <div class="current-photo">
+                            <img src="/static/{{ employee.photo }}" alt="Current Photo" class="current-photo-preview">
+                            <small>Current photo</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="department_id">Department <span class="required">*</span></label>
+                        <select id="department_id" name="department_id" required>
+                            <option value="">Select Department</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}" 
+                                    {% if employee.department_id == dept.id %}selected{% endif %}>
+                                {{ dept.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="field-hint">Employee's department</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="position">Position/Job Title <span class="required">*</span></label>
+                        <input type="text" id="position" name="position" required 
+                               value="{{ employee.position }}"
+                               minlength="2">
+                        <div class="field-hint">Enter the employee's job title</div>
+                    </div>
+                    
+                    <!-- Shift Assignment -->
+                    <div class="form-group">
+                        <label for="shift_id">
+                            <i class="fas fa-clock"></i>
+                            Shift Assignment
+                        </label>
+                        <select id="shift_id" name="shift_id">
+                            <option value="">No Shift Assigned</option>
+                            {% for shift in shifts %}
+                            <option value="{{ shift.id }}" 
+                                    {% if employee.shift_id == shift.id %}selected{% endif %}>
+                                {{ shift.name }}
+                                {% if shift.shift_type == 'standard' %}
+                                    ({{ shift.weekday_start.strftime('%H:%M') if shift.weekday_start else 'N/A' }} - 
+                                     {{ shift.weekday_end.strftime('%H:%M') if shift.weekday_end else 'N/A' }})
+                                {% else %}
+                                    (Dynamic Schedule)
+                                {% endif %}
+                                {% if not shift.is_active %}
+                                    <span class="inactive-shift"> - INACTIVE</span>
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="field-hint">
+                            <i class="fas fa-info-circle"></i>
+                            Assign employee to a work shift (optional)
+                            {% if not shifts %}
+                            <br><small class="text-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                No shifts available. <a href="/attendance/shift-manager" target="_blank">Create shifts first</a>
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="status">Employment Status <span class="required">*</span></label>
+                        <select id="status" name="status" required>
+                            {% for status_option in status_options %}
+                            <option value="{{ status_option }}" 
+                                    {% if employee.status.value == status_option %}selected{% endif %}>
+                                {{ status_option.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="field-hint">Current employment status</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contract_status">Contract Status <span class="required">*</span></label>
+                        <select id="contract_status" name="contract_status" required>
+                            {% for status_option in contract_status_options %}
+                            <option value="{{ status_option }}" 
+                                    {% if employee.contract_status.value == status_option %}selected{% endif %}>
+                                {{ status_option.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="field-hint">Type of contract agreement</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3><i class="fas fa-id-card"></i> Personal Details</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="date_of_birth">Date of Birth</label>
+                        <input type="date" id="date_of_birth" name="date_of_birth" 
+                               value="{{ employee.date_of_birth.strftime('%Y-%m-%d') if employee.date_of_birth else '' }}">
+                        <div class="field-hint">Employee's date of birth</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="gender">Gender</label>
+                        <select id="gender" name="gender">
+                            <option value="">Select Gender</option>
+                            <option value="Male" {% if employee.gender and employee.gender.value == 'Male' %}selected{% endif %}>Male</option>
+                            <option value="Female" {% if employee.gender and employee.gender.value == 'Female' %}selected{% endif %}>Female</option>
+                        </select>
+                        <div class="field-hint">Employee's gender</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nationality">Nationality</label>
+                        <select id="nationality" name="nationality">
+                            <option value="">Select Nationality</option>
+                            <option value="Ugandan" {% if employee.nationality == 'Ugandan' %}selected{% endif %}>Ugandan</option>
+                            <option value="Kenyan" {% if employee.nationality == 'Kenyan' %}selected{% endif %}>Kenyan</option>
+                            <option value="Tanzanian" {% if employee.nationality == 'Tanzanian' %}selected{% endif %}>Tanzanian</option>
+                            <option value="Rwandan" {% if employee.nationality == 'Rwandan' %}selected{% endif %}>Rwandan</option>
+                            <option value="Burundian" {% if employee.nationality == 'Burundian' %}selected{% endif %}>Burundian</option>
+                            <option value="South Sudanese" {% if employee.nationality == 'South Sudanese' %}selected{% endif %}>South Sudanese</option>
+                            <option value="Other" {% if employee.nationality == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                        <div class="field-hint">Employee's nationality</div>
+                    </div>
+                    
+                    <div class="form-group" id="national_id_group">
+                        <label for="national_id_number">National Identity Card Number</label>
+                        <input type="text" id="national_id_number" name="national_id_number" 
+                               value="{{ employee.national_id_number or '' }}"
+                               placeholder="Enter NIN">
+                        <div class="field-hint">For Ugandan nationals only</div>
+                    </div>
+                    
+                    <div class="form-group" id="passport_group">
+                        <label for="passport_number">Passport Number</label>
+                        <input type="text" id="passport_number" name="passport_number" 
+                               value="{{ employee.passport_number or '' }}"
+                               placeholder="Enter passport number">
+                        <div class="field-hint">For non-Ugandan nationals</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="marital_status">Marital Status</label>
+                        <select id="marital_status" name="marital_status">
+                            <option value="">Select Marital Status</option>
+                            <option value="Single" {% if employee.marital_status and employee.marital_status.value == 'Single' %}selected{% endif %}>Single</option>
+                            <option value="Married" {% if employee.marital_status and employee.marital_status.value == 'Married' %}selected{% endif %}>Married</option>
+                            <option value="Divorced" {% if employee.marital_status and employee.marital_status.value == 'Divorced' %}selected{% endif %}>Divorced</option>
+                            <option value="Widowed" {% if employee.marital_status and employee.marital_status.value == 'Widowed' %}selected{% endif %}>Widowed</option>
+                            <option value="Separated" {% if employee.marital_status and employee.marital_status.value == 'Separated' %}selected{% endif %}>Separated</option>
+                        </select>
+                        <div class="field-hint">Employee's marital status</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="religion">Religion</label>
+                        <select id="religion" name="religion">
+                            <option value="">Select Religion</option>
+                            <option value="Christianity" {% if employee.religion == 'Christianity' %}selected{% endif %}>Christianity</option>
+                            <option value="Islam" {% if employee.religion == 'Islam' %}selected{% endif %}>Islam</option>
+                            <option value="Hindu" {% if employee.religion == 'Hindu' %}selected{% endif %}>Hindu</option>
+                            <option value="Buddhism" {% if employee.religion == 'Buddhism' %}selected{% endif %}>Buddhism</option>
+                            <option value="Judaism" {% if employee.religion == 'Judaism' %}selected{% endif %}>Judaism</option>
+                            <option value="Other" {% if employee.religion == 'Other' %}selected{% endif %}>Other</option>
+                            <option value="None" {% if employee.religion == 'None' %}selected{% endif %}>None/Not Specified</option>
+                        </select>
+                        <div class="field-hint">Employee's religion</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="blood_group">Blood Group</label>
+                        <select id="blood_group" name="blood_group">
+                            <option value="">Select Blood Group</option>
+                            <option value="A+" {% if employee.blood_group and employee.blood_group.value == 'A+' %}selected{% endif %}>A+</option>
+                            <option value="A-" {% if employee.blood_group and employee.blood_group.value == 'A-' %}selected{% endif %}>A-</option>
+                            <option value="B+" {% if employee.blood_group and employee.blood_group.value == 'B+' %}selected{% endif %}>B+</option>
+                            <option value="B-" {% if employee.blood_group and employee.blood_group.value == 'B-' %}selected{% endif %}>B-</option>
+                            <option value="AB+" {% if employee.blood_group and employee.blood_group.value == 'AB+' %}selected{% endif %}>AB+</option>
+                            <option value="AB-" {% if employee.blood_group and employee.blood_group.value == 'AB-' %}selected{% endif %}>AB-</option>
+                            <option value="O+" {% if employee.blood_group and employee.blood_group.value == 'O+' %}selected{% endif %}>O+</option>
+                            <option value="O-" {% if employee.blood_group and employee.blood_group.value == 'O-' %}selected{% endif %}>O-</option>
+                        </select>
+                        <div class="field-hint">Employee's blood group</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3><i class="fas fa-file-invoice"></i> Tax & Employment Details</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tin_number">TIN Number</label>
+                        <input type="text" id="tin_number" name="tin_number" 
+                               value="{{ employee.tin_number or '' }}"
+                               placeholder="Enter TIN number">
+                        <div class="field-hint">Tax Identification Number</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nssf_number">NSSF Number</label>
+                        <input type="text" id="nssf_number" name="nssf_number" 
+                               value="{{ employee.nssf_number or '' }}"
+                               placeholder="Enter NSSF number">
+                        <div class="field-hint">National Social Security Fund Number</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="start_of_employment">Start of Employment</label>
+                        <input type="date" id="start_of_employment" name="start_of_employment" 
+                               value="{{ employee.start_of_employment.strftime('%Y-%m-%d') if employee.start_of_employment else '' }}">
+                        <div class="field-hint">Employee's start date</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="end_of_employment">End of Employment</label>
+                        <input type="date" id="end_of_employment" name="end_of_employment" 
+                               value="{{ employee.end_of_employment.strftime('%Y-%m-%d') if employee.end_of_employment else '' }}">
+                        <div class="field-hint">Employee's end date (if applicable)</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="employment_type">Type of Employment</label>
+                        <select id="employment_type" name="employment_type">
+                            <option value="">Select Employment Type</option>
+                            <option value="Full Time" {% if employee.employment_type and employee.employment_type.value == 'Full Time' %}selected{% endif %}>Full Time</option>
+                            <option value="Part Time" {% if employee.employment_type and employee.employment_type.value == 'Part Time' %}selected{% endif %}>Part Time</option>
+                            <option value="Contract" {% if employee.employment_type and employee.employment_type.value == 'Contract' %}selected{% endif %}>Contract</option>
+                            <option value="Internship" {% if employee.employment_type and employee.employment_type.value == 'Internship' %}selected{% endif %}>Internship</option>
+                        </select>
+                        <div class="field-hint">Type of employment contract</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3><i class="fas fa-university"></i> Bank Details</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="bank_name">Bank Name</label>
+                        <select id="bank_name" name="bank_name">
+                            <option value="">Select Bank</option>
+                            <option value="Centenary Bank" {% if employee.bank_name == 'Centenary Bank' %}selected{% endif %}>Centenary Bank</option>
+                            <option value="Stanbic Bank" {% if employee.bank_name == 'Stanbic Bank' %}selected{% endif %}>Stanbic Bank</option>
+                            <option value="Bank of Uganda" {% if employee.bank_name == 'Bank of Uganda' %}selected{% endif %}>Bank of Uganda</option>
+                            <option value="DFCU Bank" {% if employee.bank_name == 'DFCU Bank' %}selected{% endif %}>DFCU Bank</option>
+                            <option value="Equity Bank" {% if employee.bank_name == 'Equity Bank' %}selected{% endif %}>Equity Bank</option>
+                            <option value="Housing Finance Bank" {% if employee.bank_name == 'Housing Finance Bank' %}selected{% endif %}>Housing Finance Bank</option>
+                            <option value="KCB Bank" {% if employee.bank_name == 'KCB Bank' %}selected{% endif %}>KCB Bank</option>
+                            <option value="PostBank Uganda" {% if employee.bank_name == 'PostBank Uganda' %}selected{% endif %}>PostBank Uganda</option>
+                            <option value="Other" {% if employee.bank_name == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                        <div class="field-hint">Employee's bank</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="branch_name">Branch Name</label>
+                        <input type="text" id="branch_name" name="branch_name" 
+                               value="{{ employee.branch_name or '' }}"
+                               placeholder="Enter branch name">
+                        <div class="field-hint">Bank branch name</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="account_title">Account Title</label>
+                        <input type="text" id="account_title" name="account_title" 
+                               value="{{ employee.account_title or '' }}"
+                               placeholder="Enter account holder name">
+                        <div class="field-hint">Name on the bank account</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="account_number">Account Number</label>
+                        <input type="text" id="account_number" name="account_number" 
+                               value="{{ employee.account_number or '' }}"
+                               placeholder="Enter account number">
+                        <div class="field-hint">Bank account number</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3><i class="fas fa-graduation-cap"></i> Education Details</h3>
+                <div class="education-container" id="educationContainer">
+                    {% if education_data and education_data|length > 0 %}
+                        {% for education in education_data %}
+                        <div class="education-entry" data-index="{{ loop.index0 }}">
+                            <div class="education-header">
+                                <h4>Education #{{ loop.index }}</h4>
+                                {% if loop.index > 1 %}
+                                <button type="button" class="btn-remove-education" data-index="{{ loop.index0 }}">
+                                    <i class="fas fa-trash"></i> Remove
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="education_level_{{ loop.index0 }}">Highest Level of Education</label>
+                                    <select id="education_level_{{ loop.index0 }}" name="education_level_{{ loop.index0 }}">
+                                        <option value="">Select Education Level</option>
+                                        <option value="high_school" {% if education.education_level == 'high_school' %}selected{% endif %}>High School</option>
+                                        <option value="diploma" {% if education.education_level == 'diploma' %}selected{% endif %}>Diploma/Certificate</option>
+                                        <option value="associate" {% if education.education_level == 'associate' %}selected{% endif %}>Associate Degree</option>
+                                        <option value="bachelor" {% if education.education_level == 'bachelor' %}selected{% endif %}>Bachelor's Degree</option>
+                                        <option value="master" {% if education.education_level == 'master' %}selected{% endif %}>Master's Degree</option>
+                                        <option value="doctorate" {% if education.education_level == 'doctorate' %}selected{% endif %}>Doctorate/PhD</option>
+                                        <option value="professional" {% if education.education_level == 'professional' %}selected{% endif %}>Professional Degree</option>
+                                        <option value="other" {% if education.education_level == 'other' %}selected{% endif %}>Other</option>
+                                    </select>
+                                    <div class="field-hint">Select the highest level of education completed</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="institution_name_{{ loop.index0 }}">Institution Name</label>
+                                    <input type="text" id="institution_name_{{ loop.index0 }}" name="institution_name_{{ loop.index0 }}" 
+                                           value="{{ education.institution_name or '' }}" placeholder="e.g., University of Cambridge">
+                                    <div class="field-hint">Name of the educational institution</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="field_of_study_{{ loop.index0 }}">Field of Study / Major</label>
+                                    <input type="text" id="field_of_study_{{ loop.index0 }}" name="field_of_study_{{ loop.index0 }}" 
+                                           value="{{ education.field_of_study or '' }}" placeholder="e.g., Computer Science">
+                                    <div class="field-hint">Area of study or major field</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="degree_title_{{ loop.index0 }}">Degree Title</label>
+                                    <input type="text" id="degree_title_{{ loop.index0 }}" name="degree_title_{{ loop.index0 }}" 
+                                           value="{{ education.degree_title or '' }}" placeholder="e.g., Bachelor of Science in Computer Science">
+                                    <div class="field-hint">Full title of the degree or certificate</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="graduation_year_{{ loop.index0 }}">Graduation Year</label>
+                                    <input type="number" id="graduation_year_{{ loop.index0 }}" name="graduation_year_{{ loop.index0 }}" 
+                                           value="{{ education.graduation_year or '' }}" min="1950" max="2030" placeholder="e.g., 2020">
+                                    <div class="field-hint">Year of graduation or completion</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="gpa_grade_{{ loop.index0 }}">GPA / Grade</label>
+                                    <input type="text" id="gpa_grade_{{ loop.index0 }}" name="gpa_grade_{{ loop.index0 }}" 
+                                           value="{{ education.gpa_grade or '' }}" placeholder="e.g., 3.8/4.0 or First Class">
+                                    <div class="field-hint">GPA, grade, or classification (optional)</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="education-entry" data-index="0">
+                            <div class="education-header">
+                                <h4>Education #1</h4>
+                                <button type="button" class="btn-remove-education" data-index="0" style="display: none;">
+                                    <i class="fas fa-trash"></i> Remove
+                                </button>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="education_level_0">Highest Level of Education</label>
+                                    <select id="education_level_0" name="education_level_0">
+                                        <option value="">Select Education Level</option>
+                                        <option value="high_school">High School</option>
+                                        <option value="diploma">Diploma/Certificate</option>
+                                        <option value="associate">Associate Degree</option>
+                                        <option value="bachelor">Bachelor's Degree</option>
+                                        <option value="master">Master's Degree</option>
+                                        <option value="doctorate">Doctorate/PhD</option>
+                                        <option value="professional">Professional Degree</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                    <div class="field-hint">Select the highest level of education completed</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="institution_name_0">Institution Name</label>
+                                    <input type="text" id="institution_name_0" name="institution_name_0" 
+                                           placeholder="e.g., University of Cambridge">
+                                    <div class="field-hint">Name of the educational institution</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="field_of_study_0">Field of Study / Major</label>
+                                    <input type="text" id="field_of_study_0" name="field_of_study_0" 
+                                           placeholder="e.g., Computer Science">
+                                    <div class="field-hint">Area of study or major field</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="degree_title_0">Degree Title</label>
+                                    <input type="text" id="degree_title_0" name="degree_title_0" 
+                                           placeholder="e.g., Bachelor of Science in Computer Science">
+                                    <div class="field-hint">Full title of the degree or certificate</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="graduation_year_0">Graduation Year</label>
+                                    <input type="number" id="graduation_year_0" name="graduation_year_0" 
+                                           min="1950" max="2030" placeholder="e.g., 2020">
+                                    <div class="field-hint">Year of graduation or completion</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="gpa_grade_0">GPA / Grade</label>
+                                    <input type="text" id="gpa_grade_0" name="gpa_grade_0" 
+                                           placeholder="e.g., 3.8/4.0 or First Class">
+                                    <div class="field-hint">GPA, grade, or classification (optional)</div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="education-actions">
+                    <button type="button" class="btn btn-outline" id="addEducationBtn">
+                        <i class="fas fa-plus"></i> Add Another Education
+                    </button>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3><i class="fas fa-info-circle"></i> Additional Information</h3>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="address">Address</label>
+                        <textarea id="address" name="address" rows="3" 
+                                  placeholder="Enter full address including city and postal code">{{ employee.address or '' }}</textarea>
+                        <div class="field-hint">Complete residential or mailing address</div>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label for="emergency_contact">Emergency Contact</label>
+                        <input type="text" id="emergency_contact" name="emergency_contact" 
+                               value="{{ employee.emergency_contact or '' }}"
+                               placeholder="Name and phone number of emergency contact">
+                        <div class="field-hint">Person to contact in case of emergency</div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if custom_fields %}
+            <div class="form-section">
+                <h3><i class="fas fa-cogs"></i> Custom Fields</h3>
+                <div class="form-grid">
+                    {% for field in custom_fields %}
+                    <div class="form-group {% if field.field_type == 'document' %}document-field{% endif %}">
+                        <label for="custom_{{ field.field_name }}">
+                            {% if field.field_type == 'document' %}
+                                <i class="fas fa-file-pdf"></i>
+                            {% endif %}
+                            {{ field.field_label }}
+                            {% if field.is_required %}<span class="required">*</span>{% endif %}
+                        </label>
+                        
+                        {% set field_value = custom_field_values.get(field.field_name, '') if custom_field_values else '' %}
+                        
+                        {% if field.field_type == 'text' %}
+                            <input type="text" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                   {% if field.is_required %}required{% endif %}
+                                   value="{{ field_value }}">
+                                   
+                        {% elif field.field_type == 'number' %}
+                            <input type="number" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                   {% if field.is_required %}required{% endif %}
+                                   value="{{ field_value }}">
+                                   
+                        {% elif field.field_type == 'date' %}
+                            <input type="date" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                   {% if field.is_required %}required{% endif %}
+                                   value="{{ field_value }}">
+                                   
+                        {% elif field.field_type == 'select' %}
+                            <select id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                    {% if field.is_required %}required{% endif %}>
+                                <option value="">Select...</option>
+                                {% if field.field_options %}
+                                    {% for option in field.field_options.split(',') %}
+                                    <option value="{{ option.strip() }}" 
+                                            {% if field_value == option.strip() %}selected{% endif %}>
+                                        {{ option.strip() }}
+                                    </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            
+                        {% elif field.field_type == 'boolean' %}
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                       value="true" class="checkbox-input"
+                                       {% if field_value == 'true' or field_value == True %}checked{% endif %}>
+                                <label for="custom_{{ field.field_name }}" class="checkbox-label">
+                                    <span class="checkbox-custom"></span>
+                                    <span class="checkbox-text">Yes / Enable</span>
+                                </label>
+                            </div>
+                            
+                        {% elif field.field_type == 'document' %}
+                            <div class="file-input-wrapper document-upload">
+                                <input type="file" id="custom_{{ field.field_name }}" name="custom_{{ field.field_name }}" 
+                                       accept=".pdf" class="file-input document-input"
+                                       {% if field.is_required and not field_value %}required{% endif %}>
+                                <div class="file-input-display document-display">
+                                    <i class="fas fa-file-pdf"></i>
+                                    <span class="file-text">Choose new PDF file...</span>
+                                    <span class="file-size-display"></span>
+                                </div>
+                                <div class="upload-progress" style="display: none;">
+                                    <div class="progress-bar"></div>
+                                </div>
+                            </div>
+                            <div class="field-hint document-hint">
+                                <i class="fas fa-info-circle"></i>
+                                PDF files only, maximum 10MB
+                                <br><small>Examples: contracts, certificates, identification documents</small>
+                            </div>
+                            {% if field_value %}
+                            <div class="current-document">
+                                <i class="fas fa-file-pdf"></i>
+                                <a href="/staff/download/documents/{{ field_value.split('/')[-1] }}" target="_blank">
+                                    View Current Document
+                                </a>
+                                <small>Current document uploaded</small>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                        
+                        {% if field.field_type != 'document' and field.field_type != 'boolean' %}
+                        <div class="field-hint">{{ field.field_label }} information</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-submit" id="submitBtn">
+                    <span class="btn-text">
+                        <i class="fas fa-save"></i> Update Employee
+                    </span>
+                    <span class="btn-loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> Updating...
+                    </span>
+                </button>
+                <a href="/staff/view/{{ employee.id }}" class="btn btn-secondary">
+                    <i class="fas fa-eye"></i> View Details
+                </a>
+                <a href="/staff/view" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i> Back to List
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+        </div>
+        <p>Updating employee...</p>
+        <small>Please wait while we save the changes</small>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+// Modern Employee Form Management with SweetAlert2
+class EmployeeFormManager {
+    constructor() {
+        this.form = document.getElementById('employeeForm');
+        this.submitBtn = document.getElementById('submitBtn');
+        this.loadingOverlay = document.getElementById('loadingOverlay');
+        this.educationIndex = this.getMaxEducationIndex() + 1;
+        this.originalFormData = this.serializeForm();
+        this.hasUnsavedChanges = false;
+        this.isSubmitting = false;
+        
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.setupFileInputs();
+        this.setupEducationSection();
+        this.initializeNationalityFields();
+        this.setupChangeTracking();
+    }
+
+    setupEventListeners() {
+        // Form submission with proper handling
+        this.form.addEventListener('submit', this.handleFormSubmit.bind(this));
+        
+        // Nationality change
+        const nationalitySelect = document.getElementById('nationality');
+        nationalitySelect?.addEventListener('change', this.toggleIdFields.bind(this));
+        
+        // Education management
+        document.getElementById('addEducationBtn')?.addEventListener('click', this.addEducation.bind(this));
+        
+        // Real-time validation
+        this.setupRealTimeValidation();
+        
+        // Change tracking with proper handling
+        this.form.addEventListener('input', this.trackChanges.bind(this));
+        this.form.addEventListener('change', this.trackChanges.bind(this));
+        
+        // Modified beforeunload handler
+        window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+    }
+
+    handleFormSubmit(e) {
+        e.preventDefault();
+        
+        if (this.isSubmitting) {
+            return false;
+        }
+
+        this.validateAndSubmit();
+        return false;
+    }
+
+    async validateAndSubmit() {
+        try {
+            // Show loading
+            this.showLoading();
+            this.isSubmitting = true;
+
+            // Validate form
+            const validation = await this.validateForm();
+            
+            if (!validation.isValid) {
+                this.hideLoading();
+                this.isSubmitting = false;
+                
+                // Show validation errors with SweetAlert
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Validation Error',
+                    html: `
+                        <div class="validation-errors">
+                            <p>Please fix the following errors:</p>
+                            <ul style="text-align: left; margin: 15px 0;">
+                                ${validation.errors.map(error => `<li>${error}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `,
+                    confirmButtonText: 'Fix Errors',
+                    confirmButtonColor: '#d33'
+                });
+                
+                // Focus on first error field
+                if (validation.firstErrorField) {
+                    validation.firstErrorField.focus();
+                    validation.firstErrorField.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }
+                return;
+            }
+
+            // Confirm save if there are changes
+            if (this.hasUnsavedChanges) {
+                const confirmResult = await Swal.fire({
+                    icon: 'question',
+                    title: 'Save Changes?',
+                    text: 'Are you sure you want to save the changes to this employee?',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Save Changes',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d'
+                });
+
+                if (!confirmResult.isConfirmed) {
+                    this.hideLoading();
+                    this.isSubmitting = false;
+                    return;
+                }
+            }
+
+            // Submit form
+            this.submitBtn.disabled = true;
+            this.submitBtn.querySelector('.btn-text').style.display = 'none';
+            this.submitBtn.querySelector('.btn-loading').style.display = 'inline-flex';
+            
+            // Clear the beforeunload handler before submission
+            this.hasUnsavedChanges = false;
+            
+            // Submit the form
+            this.form.submit();
+            
+        } catch (error) {
+            console.error('Form submission error:', error);
+            this.hideLoading();
+            this.isSubmitting = false;
+            this.submitBtn.disabled = false;
+            this.submitBtn.querySelector('.btn-text').style.display = 'inline-flex';
+            this.submitBtn.querySelector('.btn-loading').style.display = 'none';
+            
+            await Swal.fire({
+                icon: 'error',
+                title: 'Submission Error',
+                text: 'An error occurred while submitting the form. Please try again.',
+                confirmButtonColor: '#d33'
+            });
+        }
+    }
+
+    async validateForm() {
+        const errors = [];
+        let firstErrorField = null;
+
+        // Reset previous validations
+        this.clearAllFieldErrors();
+
+        // Validate required fields
+        const requiredFields = this.form.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            if (!this.isFieldValid(field)) {
+                const label = this.getFieldLabel(field);
+                errors.push(`${label} is required`);
+                this.showFieldError(field, 'This field is required');
+                if (!firstErrorField) firstErrorField = field;
+            }
+        });
+
+        // Email validation
+        const emailField = document.getElementById('email');
+        if (emailField?.value && !this.isValidEmail(emailField.value)) {
+            errors.push('Please enter a valid email address');
+            this.showFieldError(emailField, 'Please enter a valid email address');
+            if (!firstErrorField) firstErrorField = emailField;
+        }
+
+        // Date validations
+        const dateErrors = this.validateDates();
+        errors.push(...dateErrors.errors);
+        if (dateErrors.firstErrorField && !firstErrorField) {
+            firstErrorField = dateErrors.firstErrorField;
+        }
+
+        // Education validation
+        const educationErrors = this.validateEducation();
+        errors.push(...educationErrors.errors);
+        if (educationErrors.firstErrorField && !firstErrorField) {
+            firstErrorField = educationErrors.firstErrorField;
+        }
+
+        // File upload validation
+        const fileErrors = this.validateFileUploads();
+        errors.push(...fileErrors.errors);
+        if (fileErrors.firstErrorField && !firstErrorField) {
+            firstErrorField = fileErrors.firstErrorField;
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors,
+            firstErrorField
+        };
+    }
+
+    validateDates() {
+        const errors = [];
+        let firstErrorField = null;
+
+        // Date of birth validation
+        const dateOfBirth = document.getElementById('date_of_birth');
+        if (dateOfBirth?.value) {
+            const birthDate = new Date(dateOfBirth.value);
+            const today = new Date();
+            const age = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
+            
+            if (birthDate >= today) {
+                errors.push('Date of birth must be in the past');
+                this.showFieldError(dateOfBirth, 'Date of birth must be in the past');
+                if (!firstErrorField) firstErrorField = dateOfBirth;
+            } else if (age < 16 || age > 100) {
+                errors.push('Age must be between 16 and 100 years');
+                this.showFieldError(dateOfBirth, 'Age must be between 16 and 100 years');
+                if (!firstErrorField) firstErrorField = dateOfBirth;
+            }
+        }
+
+        // Employment dates validation
+        const startDate = document.getElementById('start_of_employment');
+        const endDate = document.getElementById('end_of_employment');
+        if (startDate?.value && endDate?.value) {
+            if (new Date(endDate.value) <= new Date(startDate.value)) {
+                errors.push('End date must be after start date');
+                this.showFieldError(endDate, 'End date must be after start date');
+                if (!firstErrorField) firstErrorField = endDate;
+            }
+        }
+
+        return { errors, firstErrorField };
+    }
+
+    validateEducation() {
+        const errors = [];
+        let firstErrorField = null;
+        const educationEntries = document.querySelectorAll('.education-entry');
+        
+        educationEntries.forEach((entry, index) => {
+            const entryIndex = entry.dataset.index;
+            const educationLevel = entry.querySelector(`[name="education_level_${entryIndex}"]`);
+            const institutionName = entry.querySelector(`[name="institution_name_${entryIndex}"]`);
+            const graduationYear = entry.querySelector(`[name="graduation_year_${entryIndex}"]`);
+            
+            // Check if any education field in this entry is filled
+            const hasAnyEducationData = Array.from(entry.querySelectorAll('input, select')).some(field => 
+                field.value && field.value.toString().trim()
+            );
+            
+            if (hasAnyEducationData) {
+                // If any education field is filled, require education level and institution
+                if (!educationLevel?.value?.trim()) {
+                    errors.push(`Education level is required for education entry #${index + 1}`);
+                    this.showFieldError(educationLevel, 'Education level is required when education details are provided');
+                    if (!firstErrorField) firstErrorField = educationLevel;
+                }
+                if (!institutionName?.value?.trim()) {
+                    errors.push(`Institution name is required for education entry #${index + 1}`);
+                    this.showFieldError(institutionName, 'Institution name is required when education details are provided');
+                    if (!firstErrorField) firstErrorField = institutionName;
+                }
+                
+                // Validate graduation year if provided
+                if (graduationYear?.value) {
+                    const year = parseInt(graduationYear.value);
+                    const currentYear = new Date().getFullYear();
+                    if (year < 1950 || year > currentYear + 10) {
+                        errors.push(`Invalid graduation year for education entry #${index + 1}. Must be between 1950 and ${currentYear + 10}`);
+                        this.showFieldError(graduationYear, `Graduation year must be between 1950 and ${currentYear + 10}`);
+                        if (!firstErrorField) firstErrorField = graduationYear;
+                    }
+                }
+            }
+        });
+        
+        return { errors, firstErrorField };
+    }
+
+    validateFileUploads() {
+        const errors = [];
+        let firstErrorField = null;
+        
+        document.querySelectorAll('.file-input').forEach(input => {
+            if (input.files.length > 0) {
+                const file = input.files[0];
+                const isDocument = input.classList.contains('document-input');
+                
+                const options = isDocument ? {
+                    maxSize: 10 * 1024 * 1024,
+                    allowedTypes: ['application/pdf'],
+                    allowedExtensions: ['.pdf']
+                } : {
+                    maxSize: 5 * 1024 * 1024,
+                    allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+                    allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+                };
+                
+                const validation = this.validateFile(file, options);
+                if (!validation.isValid) {
+                    errors.push(validation.errorMessage);
+                    this.showFieldError(input, validation.errorMessage);
+                    if (!firstErrorField) firstErrorField = input;
+                }
+            }
+        });
+        
+        return { errors, firstErrorField };
+    }
+
+    // Helper validation methods
+    isFieldValid(field) {
+        if (field.type === 'checkbox') {
+            return !field.hasAttribute('required') || field.checked;
+        }
+        return field.value && field.value.toString().trim() !== '';
+    }
+
+    getFieldLabel(field) {
+        const label = field.closest('.form-group')?.querySelector('label');
+        return label ? label.textContent.replace('*', '').trim() : field.name || 'Field';
+    }
+
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    validateFile(file, options) {
+        // Check file size
+        if (options.maxSize && file.size > options.maxSize) {
+            return {
+                isValid: false,
+                errorMessage: `File too large. Maximum size: ${this.formatFileSize(options.maxSize)}`
+            };
+        }
+        
+        // Check file type
+        if (options.allowedTypes && !options.allowedTypes.includes(file.type)) {
+            return {
+                isValid: false,
+                errorMessage: `Invalid file type. Allowed: ${options.allowedExtensions.join(', ')}`
+            };
+        }
+        
+        // Check file extension
+        if (options.allowedExtensions) {
+            const extension = '.' + file.name.split('.').pop().toLowerCase();
+            if (!options.allowedExtensions.includes(extension)) {
+                return {
+                    isValid: false,
+                    errorMessage: `Invalid file extension. Allowed: ${options.allowedExtensions.join(', ')}`
+                };
+            }
+        }
+        
+        return { isValid: true };
+    }
+
+    setupFileInputs() {
+        // Regular photo upload
+        const photoInput = document.getElementById('photo');
+        if (photoInput) {
+            this.setupFileInput(photoInput, {
+                maxSize: 5 * 1024 * 1024, // 5MB
+                allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+                allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+            });
+        }
+        
+        // Document file inputs
+        const documentInputs = document.querySelectorAll('.document-input');
+        documentInputs.forEach(input => {
+            this.setupFileInput(input, {
+                maxSize: 10 * 1024 * 1024, // 10MB
+                allowedTypes: ['application/pdf'],
+                allowedExtensions: ['.pdf'],
+                isDocument: true
+            });
+        });
+    }
+
+    setupFileInput(input, options = {}) {
+        const wrapper = input.closest('.file-input-wrapper');
+        const textSpan = wrapper.querySelector('.file-text');
+        const sizeSpan = wrapper.querySelector('.file-size-display');
+        
+        input.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            
+            if (file) {
+                const validation = this.validateFile(file, options);
+                
+                if (validation.isValid) {
+                    textSpan.textContent = file.name;
+                    if (sizeSpan) {
+                        sizeSpan.textContent = `(${this.formatFileSize(file.size)})`;
+                    }
+                    wrapper.classList.add('has-file');
+                    wrapper.classList.remove('error');
+                    this.clearFieldError(input);
+                    
+                    // Show success message
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'File Selected',
+                        text: `File "${file.name}" selected successfully`,
+                        timer: 2000,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                } else {
+                    // Reset input
+                    e.target.value = '';
+                    textSpan.textContent = options.isDocument ? 'Choose new PDF file...' : 'Choose new photo...';
+                    if (sizeSpan) sizeSpan.textContent = '';
+                    wrapper.classList.remove('has-file');
+                    wrapper.classList.add('error');
+                    this.showFieldError(input, validation.errorMessage);
+                    
+                    // Show error message
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid File',
+                        text: validation.errorMessage,
+                        confirmButtonColor: '#d33'
+                    });
+                }
+            } else {
+                textSpan.textContent = options.isDocument ? 'Choose new PDF file...' : 'Choose new photo...';
+                if (sizeSpan) sizeSpan.textContent = '';
+                wrapper.classList.remove('has-file', 'error');
+                this.clearFieldError(input);
+            }
+        });
+    }
+
+    setupEducationSection() {
+        this.updateRemoveButtons();
+        
+        // Setup remove buttons using event delegation
+        document.addEventListener('click', async (e) => {
+            if (e.target.closest('.btn-remove-education')) {
+                const btn = e.target.closest('.btn-remove-education');
+                const index = btn.dataset.index;
+                await this.removeEducation(index);
+            }
+        });
+    }
+
+    async addEducation() {
+        const container = document.getElementById('educationContainer');
+        const educationCount = this.getEducationCount();
+        
+        const newEducationHTML = `
+            <div class="education-entry" data-index="${this.educationIndex}">
+                <div class="education-header">
+                    <h4>Education #${educationCount + 1}</h4>
+                    <button type="button" class="btn-remove-education" data-index="${this.educationIndex}">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                </div>
+                <div class="form-grid">
+                    ${this.generateEducationFields(this.educationIndex)}
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', newEducationHTML);
+        this.educationIndex++;
+        
+        this.updateRemoveButtons();
+        
+        // Animate and focus
+        const newEntry = container.lastElementChild;
+        newEntry.style.opacity = '0';
+        newEntry.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            newEntry.style.transition = 'all 0.3s ease';
+            newEntry.style.opacity = '1';
+            newEntry.style.transform = 'translateY(0)';
+            
+            newEntry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            const firstField = newEntry.querySelector('select');
+            if (firstField) {
+                setTimeout(() => firstField.focus(), 500);
+            }
+        }, 100);
+        
+        // Show success message
+        await Swal.fire({
+            icon: 'success',
+            title: 'Education Added',
+            text: 'New education entry added successfully',
+            timer: 2000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
+        });
+    }
+
+    async removeEducation(index) {
+        const entry = document.querySelector(`[data-index="${index}"]`);
+        if (!entry) return;
+        
+        // Check if entry has data
+        const hasData = Array.from(entry.querySelectorAll('input, select')).some(field => 
+            field.value && field.value.toString().trim()
+        );
+        
+        if (hasData) {
+            const confirmResult = await Swal.fire({
+                icon: 'warning',
+                title: 'Remove Education Entry?',
+                text: 'Are you sure you want to remove this education entry? All data will be lost.',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Remove',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d'
+            });
+
+            if (!confirmResult.isConfirmed) {
+                return;
+            }
+        }
+        
+        // Animate removal
+        entry.style.transition = 'all 0.3s ease';
+        entry.style.opacity = '0';
+        entry.style.transform = 'translateX(-100%)';
+        
+        setTimeout(() => {
+            entry.remove();
+            this.updateEducationNumbers();
+            this.updateRemoveButtons();
+        }, 300);
+
+        // Show success message
+        await Swal.fire({
+            icon: 'info',
+            title: 'Education Removed',
+            text: 'Education entry removed successfully',
+            timer: 2000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
+        });
+    }
+
+    generateEducationFields(index) {
+        return `
+            <div class="form-group">
+                <label for="education_level_${index}">Highest Level of Education</label>
+                <select id="education_level_${index}" name="education_level_${index}">
+                    <option value="">Select Education Level</option>
+                    <option value="high_school">High School</option>
+                    <option value="diploma">Diploma/Certificate</option>
+                    <option value="associate">Associate Degree</option>
+                    <option value="bachelor">Bachelor's Degree</option>
+                    <option value="master">Master's Degree</option>
+                    <option value="doctorate">Doctorate/PhD</option>
+                    <option value="professional">Professional Degree</option>
+                    <option value="other">Other</option>
+                </select>
+                <div class="field-hint">Select the highest level of education completed</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="institution_name_${index}">Institution Name</label>
+                <input type="text" id="institution_name_${index}" name="institution_name_${index}" 
+                       placeholder="e.g., University of Cambridge">
+                <div class="field-hint">Name of the educational institution</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="field_of_study_${index}">Field of Study / Major</label>
+                <input type="text" id="field_of_study_${index}" name="field_of_study_${index}" 
+                       placeholder="e.g., Computer Science">
+                <div class="field-hint">Area of study or major field</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="degree_title_${index}">Degree Title</label>
+                <input type="text" id="degree_title_${index}" name="degree_title_${index}" 
+                       placeholder="e.g., Bachelor of Science in Computer Science">
+                <div class="field-hint">Full title of the degree or certificate</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="graduation_year_${index}">Graduation Year</label>
+                <input type="number" id="graduation_year_${index}" name="graduation_year_${index}" 
+                       min="1950" max="2030" placeholder="e.g., 2020">
+                <div class="field-hint">Year of graduation or completion</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="gpa_grade_${index}">GPA / Grade</label>
+                <input type="text" id="gpa_grade_${index}" name="gpa_grade_${index}" 
+                       placeholder="e.g., 3.8/4.0 or First Class">
+                <div class="field-hint">GPA, grade, or classification (optional)</div>
+            </div>
+        `;
+    }
+
+    setupRealTimeValidation() {
+        // Email validation
+        const emailField = document.getElementById('email');
+        if (emailField) {
+            emailField.addEventListener('blur', async () => {
+                if (emailField.value && !this.isValidEmail(emailField.value)) {
+                    this.showFieldError(emailField, 'Please enter a valid email address');
+                } else {
+                    this.clearFieldError(emailField);
+                }
+            });
+        }
+        
+        // Biometric ID validation
+        const biometricField = document.getElementById('biometric_id');
+        if (biometricField) {
+            biometricField.addEventListener('input', (e) => {
+                // Convert to uppercase and remove invalid characters
+                e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                
+                if (e.target.value.length > 20) {
+                    e.target.value = e.target.value.substring(0, 20);
+                }
+            });
+            
+        }
+        
+        // Character limits for text fields
+        const textFields = ['first_name', 'last_name'];
+        textFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('input', (e) => {
+                    if (e.target.value.length > 50) {
+                        e.target.value = e.target.value.substring(0, 50);
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Character Limit',
+                            text: `${fieldId.replace('_', ' ')} truncated to 50 characters`,
+                            timer: 2000,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                    }
+                    
+                    this.clearFieldError(e.target);
+                    if (e.target.value.length > 0 && e.target.value.length < 2) {
+                        this.showFieldError(e.target, 'Name must be at least 2 characters long');
+                    }
+                });
+            }
+        });
+    }
+
+    toggleIdFields() {
+        const nationality = document.getElementById('nationality').value;
+        const nationalIdGroup = document.getElementById('national_id_group');
+        const passportGroup = document.getElementById('passport_group');
+        
+        if (nationality === 'Ugandan') {
+            nationalIdGroup.style.display = 'block';
+            passportGroup.style.display = 'none';
+            document.getElementById('passport_number').value = '';
+        } else if (nationality && nationality !== 'Ugandan') {
+            nationalIdGroup.style.display = 'none';
+            passportGroup.style.display = 'block';
+            document.getElementById('national_id_number').value = '';
+        } else {
+            nationalIdGroup.style.display = 'none';
+            passportGroup.style.display = 'none';
+            document.getElementById('national_id_number').value = '';
+            document.getElementById('passport_number').value = '';
+        }
+    }
+
+    initializeNationalityFields() {
+        this.toggleIdFields();
+    }
+
+    setupChangeTracking() {
+        this.trackChanges();
+    }
+
+    trackChanges() {
+        const currentFormData = this.serializeForm();
+        this.hasUnsavedChanges = currentFormData !== this.originalFormData;
+        
+        // Update submit button text if there are changes
+        const submitText = this.submitBtn.querySelector('.btn-text');
+        if (this.hasUnsavedChanges) {
+            submitText.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+            this.submitBtn.classList.add('btn-warning');
+            this.submitBtn.classList.remove('btn-primary');
+        } else {
+            submitText.innerHTML = '<i class="fas fa-save"></i> Update Employee';
+            this.submitBtn.classList.add('btn-primary');
+            this.submitBtn.classList.remove('btn-warning');
+        }
+    }
+
+    handleBeforeUnload(e) {
+        // Only show warning if there are unsaved changes and we're not submitting
+        if (this.hasUnsavedChanges && !this.isSubmitting) {
+            const message = 'You have unsaved changes. Are you sure you want to leave?';
+            e.returnValue = message;
+            return message;
+        }
+    }
+
+    // Utility methods
+    serializeForm() {
+        const formData = new FormData(this.form);
+        const data = {};
+        for (let [key, value] of formData.entries()) {
+            if (data[key]) {
+                if (Array.isArray(data[key])) {
+                    data[key].push(value);
+                } else {
+                    data[key] = [data[key], value];
+                }
+            } else {
+                data[key] = value;
+            }
+        }
+        return JSON.stringify(data);
+    }
+
+    getMaxEducationIndex() {
+        const entries = document.querySelectorAll('.education-entry');
+        let maxIndex = -1;
+        entries.forEach(entry => {
+            const index = parseInt(entry.dataset.index);
+            if (index > maxIndex) {
+                maxIndex = index;
+            }
+        });
+        return maxIndex;
+    }
+
+    getEducationCount() {
+        return document.querySelectorAll('.education-entry').length;
+    }
+
+    updateEducationNumbers() {
+        const entries = document.querySelectorAll('.education-entry');
+        entries.forEach((entry, index) => {
+            const header = entry.querySelector('.education-header h4');
+            if (header) {
+                header.textContent = `Education #${index + 1}`;
+            }
+        });
+    }
+
+    updateRemoveButtons() {
+        const entries = document.querySelectorAll('.education-entry');
+        const removeButtons = document.querySelectorAll('.btn-remove-education');
+        
+        if (entries.length <= 1) {
+            removeButtons.forEach(btn => btn.style.display = 'none');
+        } else {
+            removeButtons.forEach(btn => btn.style.display = 'flex');
+        }
+    }
+
+    showFieldError(field, message) {
+        this.clearFieldError(field);
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'field-error';
+        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        
+        field.parentNode.appendChild(errorDiv);
+        field.classList.add('error');
+    }
+
+    clearFieldError(field) {
+        const existingError = field.parentNode.querySelector('.field-error');
+        if (existingError) {
+            existingError.remove();
+        }
+        field.classList.remove('error');
+    }
+
+    clearAllFieldErrors() {
+        document.querySelectorAll('.field-error').forEach(error => error.remove());
+        document.querySelectorAll('.error').forEach(field => field.classList.remove('error'));
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    showLoading() {
+        this.loadingOverlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    hideLoading() {
+        this.loadingOverlay.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// Initialize the form manager when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    new EmployeeFormManager();
+});
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Full width form styling */
+.form-container {
+    width: 100%;
+    padding: 20px;
+    margin: 0;
+    max-width: none;
+}
+
+.form-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    width: 100%;
+}
+
+/* Education Section Styles */
+.education-container {
+    margin-bottom: 1.5rem;
+}
+
+.education-entry {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.education-entry:last-child {
+    margin-bottom: 0;
+}
+
+.education-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.education-header h4 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.btn-remove-education {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-remove-education:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+.education-actions {
+    text-align: center;
+    padding: 20px 0;
+    border-top: 1px solid #e9ecef;
+    margin-top: 20px;
+}
+
+.education-actions .btn {
+    min-width: 200px;
+}
+
+/* Responsive adjustments for education section */
+@media (max-width: 768px) {
+    .education-entry {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .education-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .btn-remove-education {
+        align-self: flex-end;
+    }
+}
+
+.employee-form {
+    padding: 30px;
+}
+
+.form-section {
+    margin-bottom: 40px;
+}
+
+.form-section h3 {
+    color: var(--primary-color);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.form-section h3:hover {
+    color: var(--primary-dark);
+}
+
+/* Improved grid for full width */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 25px;
+    width: 100%;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group.document-field {
+    border: 2px dashed #e0e0e0;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #fafafa;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.required {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background-color: white;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-group input[readonly] {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(107, 30, 30, 0.1);
+}
+
+.form-group input.error,
+.form-group select.error,
+.form-group textarea.error {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.field-hint {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.document-hint {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: #856404;
+}
+
+.field-error {
+    color: #dc3545;
+    font-size: 0.85rem;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #f8d7da;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #f5c6cb;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Current photo and document styling */
+.current-photo {
+    margin-top: 15px;
+    text-align: center;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.current-photo-preview {
+    max-width: 150px;
+    max-height: 150px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border: 2px solid #dee2e6;
+    transition: transform 0.3s ease;
+}
+
+.current-photo-preview:hover {
+    transform: scale(1.05);
+}
+
+.current-photo small {
+    color: #6c757d;
+    font-weight: 500;
+    display: block;
+}
+
+.current-document {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background-color 0.3s ease;
+}
+
+.current-document:hover {
+    background-color: #e9ecef;
+}
+
+.current-document i {
+    color: #dc3545;
+    font-size: 1.2rem;
+}
+
+.current-document a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    flex: 1;
+    transition: color 0.3s ease;
+}
+
+.current-document a:hover {
+    text-decoration: underline;
+    color: var(--primary-dark);
+}
+
+.current-document small {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* File Input Styling */
+.file-input-wrapper {
+    position: relative;
+    cursor: pointer;
+    width: 100%;
+}
+
+.file-input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.file-input-display {
+    border: 2px dashed #ccc;
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background-color: #fafafa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.file-input-display:hover {
+    border-color: var(--primary-color);
+    background-color: #f8f9ff;
+    transform: translateY(-2px);
+}
+
+.file-input-wrapper.has-file .file-input-display {
+    border-color: #28a745;
+    background-color: #f8fff9;
+}
+
+.file-input-wrapper.error .file-input-display {
+    border-color: #dc3545;
+    background-color: #fff8f8;
+}
+
+.document-display {
+    border-style: solid !important;
+    background-color: white !important;
+}
+
+.file-input-display i {
+    font-size: 2rem;
+    color: #666;
+    transition: color 0.3s ease;
+}
+
+.file-input-display:hover i {
+    color: var(--primary-color);
+}
+
+.document-display i {
+    color: #dc3545;
+}
+
+.file-text {
+    font-weight: 500;
+    color: #333;
+}
+
+.file-size-display {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+/* Checkbox Styling */
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.checkbox-input {
+    position: absolute;
+    opacity: 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-custom {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    margin-right: 10px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.checkbox-input:checked + .checkbox-label .checkbox-custom {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.checkbox-input:checked + .checkbox-label .checkbox-custom::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: white;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-start;
+    align-items: center;
+    padding-top: 30px;
+    border-top: 2px solid #f0f0f0;
+    margin-top: 30px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+    justify-content: center;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(107, 30, 30, 0.3);
+}
+
+.btn-primary:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.btn-warning:hover {
+    background: #ffb300;
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-2px);
+}
+
+.btn-outline {
+    background-color: transparent;
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-outline:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-loading {
+    display: none;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+}
+
+.loading-content {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    max-width: 300px;
+}
+
+.loading-spinner i {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+}
+
+.loading-content p {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.loading-content small {
+    color: #666;
+}
+
+.text-warning {
+    color: #f59e0b !important;
+}
+
+.inactive-shift {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+/* CSS Variables */
+:root {
+    --primary-color: #6b1e1e;
+    --primary-dark: #5a1919;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .form-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .form-container {
+        padding: 15px;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .employee-form {
+        padding: 20px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+    
+    .current-photo-preview {
+        max-width: 120px;
+        max-height: 120px;
+    }
+}
+
+@media (max-width: 480px) {
+    .form-container {
+        padding: 10px;
+    }
+    
+    .employee-form {
+        padding: 15px;
+    }
+    
+    .form-section h3 {
+        font-size: 1.1rem;
+    }
+}
+
+/* Validation error styles for SweetAlert */
+.validation-errors {
+    font-size: 0.95rem;
+}
+
+.validation-errors ul {
+    margin: 15px auto;
+    padding-left: 20px;
+    max-width: 400px;
+}
+
+.validation-errors li {
+    margin-bottom: 5px;
+    color: #666;
+}
+
+/* Focus styles for accessibility */
+.btn:focus,
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        border-width: 3px;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .education-entry,
+    .btn,
+    .file-input-display {
+        transition: none;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: none; }
+    }
+}
+
+/* Custom SweetAlert styling */
+.swal2-popup {
+    border-radius: 12px;
+}
+
+.swal2-title {
+    color: var(--primary-color);
+}
+
+.swal2-confirm {
+    background-color: var(--primary-color) !important;
+}
+
+.swal2-confirm:hover {
+    background-color: var(--primary-dark) !important;
+}
+</style>
+{% endblock %}

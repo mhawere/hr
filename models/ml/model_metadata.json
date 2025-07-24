@@ -1,0 +1,61 @@
+{
+  "attendance_predictor": {
+    "accuracy": 0.75,
+    "features": [
+      "age",
+      "tenure_days",
+      "day_of_week",
+      "month",
+      "is_monday",
+      "is_friday",
+      "position_encoded",
+      "department_encoded",
+      "gender_encoded"
+    ],
+    "trained_date": "2025-07-07T15:50:48.163632",
+    "model_type": "RandomForestClassifier"
+  },
+  "turnover_predictor": {
+    "accuracy": 0.6666666666666666,
+    "features": [
+      "age",
+      "tenure_days",
+      "position_encoded",
+      "department_encoded",
+      "gender_encoded",
+      "is_present",
+      "is_late",
+      "performance_rating"
+    ],
+    "trained_date": "2025-07-07T15:50:48.256907",
+    "model_type": "XGBClassifier"
+  },
+  "performance_predictor": {
+    "r2_score": 1.0,
+    "features": [
+      "age",
+      "tenure_days",
+      "position_encoded",
+      "department_encoded",
+      "gender_encoded",
+      "is_present",
+      "is_late",
+      "total_working_hours"
+    ],
+    "trained_date": "2025-07-07T15:50:48.506864",
+    "model_type": "RandomForestRegressor"
+  },
+  "anomaly_detector": {
+    "features": [
+      "is_present",
+      "is_late",
+      "total_working_hours",
+      "late_minutes",
+      "day_of_week",
+      "month"
+    ],
+    "trained_date": "2025-07-07T15:50:48.884432",
+    "model_type": "IsolationForest",
+    "contamination": 0.1
+  }
+}

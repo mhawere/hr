@@ -1,0 +1,716 @@
+{% extends "base.html" %}
+
+{% block title %}Leave Reports - {{ target_year }}{% endblock %}
+
+{% block page_title %}Leave Reports{% endblock %}
+
+{% block content %}
+<div class="reports-page">
+    <!-- Header -->
+    <div class="reports-header">
+        <div class="reports-title">
+            <h1><i class="fas fa-chart-bar"></i> Leave Reports</h1>
+            <p>Comprehensive leave analytics and insights for {{ target_year }}</p>
+        </div>
+        <div class="reports-filters">
+            <select id="yearFilter" onchange="filterReports()">
+                {% for year in range(2020, 2026) %}
+                    <option value="{{ year }}" {% if year == target_year %}selected{% endif %}>{{ year }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-primary" onclick="exportReports()">
+                <i class="fas fa-download"></i> Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card total">
+            <div class="summary-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="summary-content">
+                <h3>{{ "%.1f"|format(total_entitled) }}</h3>
+                <p>Total Entitled Days</p>
+                <span class="summary-subtitle">Across all employees</span>
+            </div>
+        </div>
+
+        <div class="summary-card used">
+            <div class="summary-icon">
+                <i class="fas fa-calendar-minus"></i>
+            </div>
+            <div class="summary-content">
+                <h3>{{ "%.1f"|format(total_used) }}</h3>
+                <p>Total Used Days</p>
+                <span class="summary-subtitle">{{ "%.1f"|format((total_used / total_entitled * 100) if total_entitled > 0 else 0) }}% utilization</span>
+            </div>
+        </div>
+
+        <div class="summary-card remaining">
+            <div class="summary-icon">
+                <i class="fas fa-calendar-plus"></i>
+            </div>
+            <div class="summary-content">
+                <h3>{{ "%.1f"|format(total_remaining) }}</h3>
+                <p>Total Remaining</p>
+                <span class="summary-subtitle">Available for use</span>
+            </div>
+        </div>
+
+        <div class="summary-card employees">
+            <div class="summary-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="summary-content">
+                <h3>{{ report_data|length }}</h3>
+                <p>Active Employees</p>
+                <span class="summary-subtitle">In report scope</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leave Type Statistics -->
+    <div class="chart-section">
+        <div class="section-header">
+            <h3><i class="fas fa-chart-pie"></i> Leave Type Statistics</h3>
+        </div>
+        <div class="chart-container">
+            <canvas id="leaveTypeChart"></canvas>
+        </div>
+        
+        <div class="stats-table">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Leave Type</th>
+                        <th>Total Requests</th>
+                        <th>Total Days</th>
+                        <th>Avg Days per Request</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in leave_type_stats %}
+                    <tr>
+                        <td>{{ stat.name }}</td>
+                        <td>{{ stat.request_count }}</td>
+                        <td>{{ "%.1f"|format(stat.total_days) }}</td>
+                        <td>{{ "%.1f"|format(stat.total_days / stat.request_count) if stat.request_count > 0 else 0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Employee Details Table -->
+    <div class="employee-reports-section">
+        <div class="section-header">
+            <h3><i class="fas fa-table"></i> Employee Leave Summary</h3>
+            <div class="table-controls">
+                <input type="text" id="employeeSearch" placeholder="Search employees..." onkeyup="filterEmployees()">
+                <select id="departmentFilter" onchange="filterEmployees()">
+                    <option value="">All Departments</option>
+                    <!-- Add department options dynamically -->
+                </select>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table" id="employeeTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)">Employee <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable(1)">Department <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable(2)">Entitled Days <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable(3)">Earned Days <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable(4)">Used Days <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable(5)">Remaining <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable(6)">Utilization % <i class="fas fa-sort"></i></th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in report_data %}
+                    <tr class="employee-row" 
+                        data-employee="{{ data.employee.first_name }} {{ data.employee.last_name }}"
+                        data-department="{{ data.employee.department.name if data.employee.department else 'No Department' }}">
+                        <td>
+                            <div class="employee-info">
+                                <div class="employee-avatar-small">
+                                    {% if data.employee.photo %}
+                                        <img src="/static/{{ data.employee.photo }}" alt="{{ data.employee.first_name }}">
+                                    {% else %}
+                                        <div class="avatar-placeholder-small">
+                                            {{ data.employee.first_name[0] }}{{ data.employee.last_name[0] }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="employee-details">
+                                    <strong>{{ data.employee.first_name }} {{ data.employee.last_name }}</strong>
+                                    <small>{{ data.employee.employee_id }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ data.employee.department.name if data.employee.department else 'No Department' }}</td>
+                        <td>
+                            <span class="metric-value">{{ "%.1f"|format(data.balance_data.max_entitled_days) }}</span>
+                        </td>
+                        <td>
+                            <span class="metric-value earned">{{ "%.1f"|format(data.balance_data.earned_days) }}</span>
+                            <small class="metric-subtitle">{{ "%.1f"|format(data.balance_data.attendance_percentage) }}% attendance</small>
+                        </td>
+                        <td>
+                            <span class="metric-value used">{{ "%.1f"|format(data.balance_data.used_days) }}</span>
+                            {% if data.leave_breakdown %}
+                                <div class="breakdown-pills">
+                                    {% for leave_type, days in data.leave_breakdown.items() %}
+                                        <span class="breakdown-pill">{{ leave_type }}: {{ "%.1f"|format(days) }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="metric-value remaining">{{ "%.1f"|format(data.balance_data.remaining_earned) }}</span>
+                        </td>
+                        <td>
+                            {% set utilization = (data.balance_data.used_days / data.balance_data.earned_days * 100) if data.balance_data.earned_days > 0 else 0 %}
+                            <div class="utilization-bar">
+                                <div class="utilization-fill" style="width: {{ utilization }}%"></div>
+                                <span class="utilization-text">{{ "%.1f"|format(utilization) }}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="/leave/employee/{{ data.employee.id }}" class="btn btn-sm btn-outline">
+                                    <i class="fas fa-eye"></i> View
+                                </a>
+                                <button class="btn btn-sm btn-info" onclick="generateEmployeeReport({{ data.employee.id }})">
+                                    <i class="fas fa-file-pdf"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Reports Styles */
+.reports-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.reports-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.reports-title h1 {
+    margin: 0 0 0.5rem 0;
+    color: var(--primary-color);
+}
+
+.reports-title p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.reports-filters {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.reports-filters select {
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    background: white;
+}
+
+/* Summary Grid */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.summary-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.summary-card.total { border-left: 4px solid #3b82f6; }
+.summary-card.used { border-left: 4px solid #f59e0b; }
+.summary-card.remaining { border-left: 4px solid #10b981; }
+.summary-card.employees { border-left: 4px solid #8b5cf6; }
+
+.summary-icon {
+    font-size: 2rem;
+    opacity: 0.8;
+}
+
+.summary-card.total .summary-icon { color: #3b82f6; }
+.summary-card.used .summary-icon { color: #f59e0b; }
+.summary-card.remaining .summary-icon { color: #10b981; }
+.summary-card.employees .summary-icon { color: #8b5cf6; }
+
+.summary-content h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem 0;
+    color: var(--text-primary);
+}
+
+.summary-content p {
+    font-weight: 600;
+    margin: 0 0 0.25rem 0;
+    color: var(--text-primary);
+}
+
+.summary-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Chart Section */
+.chart-section {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 2rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.section-header h3 {
+    margin: 0;
+    color: var(--primary-color);
+}
+
+.chart-container {
+    max-width: 400px;
+    margin: 0 auto 2rem auto;
+}
+
+/* Employee Info */
+.employee-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.employee-avatar-small {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.employee-avatar-small img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder-small {
+    width: 100%;
+    height: 100%;
+    background: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.employee-details strong {
+    display: block;
+    color: var(--text-primary);
+}
+
+.employee-details small {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+/* Metrics */
+.metric-value {
+    font-weight: 600;
+    display: block;
+}
+
+.metric-value.earned { color: #059669; }
+.metric-value.used { color: #dc2626; }
+.metric-value.remaining { color: #2563eb; }
+
+.metric-subtitle {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.breakdown-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+}
+
+.breakdown-pill {
+    background: #f3f4f6;
+    color: var(--text-secondary);
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+}
+
+/* Utilization Bar */
+.utilization-bar {
+    position: relative;
+    background: #f3f4f6;
+    border-radius: 0.5rem;
+    height: 24px;
+    overflow: hidden;
+    min-width: 80px;
+}
+
+.utilization-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #059669);
+    transition: width 0.3s ease;
+}
+
+.utilization-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Table Controls */
+.table-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.table-controls input,
+.table-controls select {
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+}
+
+/* Sortable headers */
+th[onclick] {
+    cursor: pointer;
+    user-select: none;
+}
+
+th[onclick]:hover {
+    background: #f8f9fa;
+}
+
+th i {
+    margin-left: 0.5rem;
+    opacity: 0.5;
+}
+
+/* Employee Reports Section */
+.employee-reports-section {
+    background: white;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.employee-reports-section .section-header {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 0;
+}
+
+.employee-reports-section .table-container {
+    padding: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .reports-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .table-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .employee-info {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .breakdown-pills {
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Reports JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    initializeReports();
+});
+
+function initializeReports() {
+    createLeaveTypeChart();
+    initializeTableSorting();
+}
+
+function createLeaveTypeChart() {
+    const ctx = document.getElementById('leaveTypeChart').getContext('2d');
+    
+    // Prepare data from leave_type_stats
+    const leaveTypeStats = {{ leave_type_stats|tojson|safe }};
+    
+    const labels = leaveTypeStats.map(stat => stat.name);
+    const data = leaveTypeStats.map(stat => stat.total_days);
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.parsed} days (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function filterReports() {
+    const year = document.getElementById('yearFilter').value;
+    window.location.href = `/leave/reports?year=${year}`;
+}
+
+function filterEmployees() {
+    const searchTerm = document.getElementById('employeeSearch').value.toLowerCase();
+    const departmentFilter = document.getElementById('departmentFilter').value.toLowerCase();
+    const rows = document.querySelectorAll('.employee-row');
+    
+    rows.forEach(row => {
+        const employeeName = row.dataset.employee.toLowerCase();
+        const department = row.dataset.department.toLowerCase();
+        
+        const matchesSearch = employeeName.includes(searchTerm);
+        const matchesDepartment = !departmentFilter || department.includes(departmentFilter);
+        
+        row.style.display = (matchesSearch && matchesDepartment) ? '' : 'none';
+    });
+}
+
+let sortDirection = {};
+
+function sortTable(columnIndex) {
+    const table = document.getElementById('employeeTable');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Toggle sort direction
+    const column = table.querySelectorAll('th')[columnIndex];
+    const currentDirection = sortDirection[columnIndex] || 'asc';
+    const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+    sortDirection[columnIndex] = newDirection;
+    
+    // Update sort icons
+    table.querySelectorAll('th i').forEach(icon => {
+        icon.className = 'fas fa-sort';
+    });
+    column.querySelector('i').className = `fas fa-sort-${newDirection === 'asc' ? 'up' : 'down'}`;
+    
+    rows.sort((a, b) => {
+        const aValue = getCellValue(a, columnIndex);
+        const bValue = getCellValue(b, columnIndex);
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return newDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            return newDirection === 'asc' 
+                ? aValue.toString().localeCompare(bValue.toString())
+                : bValue.toString().localeCompare(aValue.toString());
+        }
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+function getCellValue(row, columnIndex) {
+    const cell = row.cells[columnIndex];
+    const metricValue = cell.querySelector('.metric-value');
+    
+    if (metricValue) {
+        return parseFloat(metricValue.textContent) || 0;
+    }
+    
+    if (columnIndex === 6) { // Utilization %
+        const text = cell.querySelector('.utilization-text');
+        return parseFloat(text.textContent) || 0;
+    }
+    
+    return cell.textContent.trim();
+}
+
+function initializeTableSorting() {
+    // Set up department filter options
+    const departmentFilter = document.getElementById('departmentFilter');
+    const departments = new Set();
+    
+    document.querySelectorAll('.employee-row').forEach(row => {
+        departments.add(row.dataset.department);
+    });
+    
+    Array.from(departments).sort().forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept.toLowerCase();
+        option.textContent = dept;
+        departmentFilter.appendChild(option);
+    });
+}
+
+async function generateEmployeeReport(employeeId) {
+    try {
+        showNotification('Generating employee report...', 'info');
+        
+        // In a real implementation, this would call an API endpoint
+        // For now, just show a placeholder
+        showNotification('Employee report feature coming soon!', 'info');
+        
+    } catch (error) {
+        console.error('Error generating employee report:', error);
+        showNotification('Error generating report', 'error');
+    }
+}
+
+async function exportReports() {
+    try {
+        showNotification('Exporting reports...', 'info');
+        
+        // In a real implementation, this would call an API endpoint
+        showNotification('Export feature coming soon!', 'info');
+        
+    } catch (error) {
+        console.error('Error exporting reports:', error);
+        showNotification('Error exporting reports', 'error');
+    }
+}
+
+function showNotification(message, type = 'info') {
+    // Reuse the notification function from the main leave page
+    let notification = document.getElementById('notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        `;
+        document.body.appendChild(notification);
+    }
+    
+    const colors = {
+        success: '#10b981',
+        error: '#ef4444',
+        warning: '#f59e0b',
+        info: '#3b82f6'
+    };
+    
+    notification.style.backgroundColor = colors[type] || colors.info;
+    notification.textContent = message;
+    notification.style.transform = 'translateX(0)';
+    
+    setTimeout(() => {
+        notification.style.transform = 'translateX(100%)';
+    }, 3000);
+}
+</script>
+{% endblock %}

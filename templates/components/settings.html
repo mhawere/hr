@@ -1,0 +1,750 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - HR Management System{% endblock %}
+
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+    <!-- Settings Grid -->
+    <div class="settings-grid">
+        <!-- Organization Settings -->
+        <div class="settings-category">
+            <div class="category-header">
+                <div class="category-icon">
+                    <i class="fas fa-building"></i>
+                </div>
+                <div class="category-info">
+                    <h2>Organization</h2>
+                    <p>Manage departments and organizational structure</p>
+                </div>
+            </div>
+            
+            <div class="settings-options">
+                <a href="/users/" class="setting-option">
+                    <div class="option-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>System Users</h3>
+                        <p>Manage user accounts and access permissions</p>
+                        <span class="option-badge" id="usersCount">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a>
+
+                <a href="/departments/" class="setting-option">
+                    <div class="option-icon">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>Departments</h3>
+                        <p>Create and manage company departments</p>
+                        <span class="option-badge">{{ departments_count or 0 }} departments</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Employee Settings -->
+        <div class="settings-category">
+            <div class="category-header">
+                <div class="category-icon">
+                    <i class="fas fa-user-cog"></i>
+                </div>
+                <div class="category-info">
+                    <h2>Employee Configuration</h2>
+                    <p>Customize employee data fields and properties</p>
+                </div>
+            </div>
+            
+            <div class="settings-options">
+                <a href="/staff/custom-fields" class="setting-option">
+                    <div class="option-icon">
+                        <i class="fas fa-list-alt"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>Custom Fields</h3>
+                        <p>Add custom fields to employee profiles</p>
+                        <span class="option-badge">{{ custom_fields_count or 0 }} fields</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a>
+                
+                <!-- <a href="/settings/employee-status" class="setting-option disabled" title="Coming Soon">
+                    <div class="option-icon">
+                        <i class="fas fa-user-check"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>Employee Status</h3>
+                        <p>Configure employee status options</p>
+                        <span class="option-badge coming-soon">Coming Soon</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a> -->
+            </div>
+        </div>
+        
+        <!-- Attendance Settings -->
+<div class="settings-category">
+    <div class="category-header">
+        <div class="category-icon">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="category-info">
+            <h2>Attendance Configuration</h2>
+            <p>Configure time tracking and attendance policies</p>
+        </div>
+    </div>
+    
+    <div class="settings-options">
+        <a href="/attendance/shift-manager" class="setting-option" title="Manage Shifts">
+            <div class="option-icon">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+            <div class="option-content">
+                <h3>Shift Manager</h3>
+                <p>Define working hours and schedules</p>
+            </div>
+            <div class="option-action">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+        </a>
+
+        <a href="/leave/holidays/manage" class="setting-option" title="Manage Public Holidays">
+            <div class="option-icon">
+                <i class="fas fa-calendar-day"></i>
+            </div>
+            <div class="option-content">
+                <h3>Public Holidays</h3>
+                <p>Manage public holidays and non-working days</p>
+            </div>
+            <div class="option-action">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+        </a>
+        
+        <!-- <a href="/settings/attendance-policies" class="setting-option disabled" title="Coming Soon">
+            <div class="option-icon">
+                <i class="fas fa-clipboard-check"></i>
+            </div>
+            <div class="option-content">
+                <h3>Attendance Policies</h3>
+                <p>Set up attendance rules and policies</p>
+                <span class="option-badge coming-soon">Coming Soon</span>
+            </div>
+            <div class="option-action">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+        </a> -->
+    </div>
+</div>
+        
+        <div class="settings-category">
+            <div class="category-header">
+                <div class="category-icon">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div class="category-info">
+                    <h2>System Configuration</h2>
+                    <p>General system settings and preferences</p>
+                </div>
+            </div>
+            
+            <div class="settings-options">
+                <a href="/settings/general" class="setting-option disabled" title="Coming Soon">
+                    <div class="option-icon">
+                        <i class="fas fa-cog"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>General Settings</h3>
+                        <p>Basic system configuration</p>
+                        <span class="option-badge coming-soon">Phase 2</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a>
+                
+                <a href="/settings/backup" class="setting-option disabled" title="Coming Soon">
+                    <div class="option-icon">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>Backup & Export</h3>
+                        <p>Data backup and export options</p>
+                        <span class="option-badge coming-soon">Phase 2</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a>
+<!--                 
+                <a href="/settings/security" class="setting-option disabled" title="Coming Soon">
+                    <div class="option-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>Security Settings</h3>
+                        <p>Password policies and security options</p>
+                        <span class="option-badge coming-soon">Coming Soon</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a> -->
+<!--                 
+                <a href="/settings/integrations" class="setting-option disabled" title="Coming Soon">
+                    <div class="option-icon">
+                        <i class="fas fa-plug"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>Integrations</h3>
+                        <p>Third-party service integrations</p>
+                        <span class="option-badge coming-soon">Coming Soon</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a>
+            </div>
+        </div> -->
+
+        <!-- Reports & Analytics
+        <div class="settings-category">
+            <div class="category-header">
+                <div class="category-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <div class="category-info">
+                    <h2>Reports & Analytics</h2>
+                    <p>Configure reporting and data analysis tools</p>
+                </div> -->
+            </div>
+<!--             
+            <div class="settings-options">
+                <a href="/settings/report-templates" class="setting-option disabled" title="Coming Soon">
+                    <div class="option-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>Report Templates</h3>
+                        <p>Customize report templates and layouts</p>
+                        <span class="option-badge coming-soon">Coming Soon</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a> -->
+                
+                <!-- <a href="/settings/data-export" class="setting-option disabled" title="Coming Soon">
+                    <div class="option-icon">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>Data Export</h3>
+                        <p>Export data in various formats</p>
+                        <span class="option-badge coming-soon">Coming Soon</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a>
+            </div>
+        </div> -->
+
+        <!-- Notifications
+        <div class="settings-category">
+            <div class="category-header">
+                <div class="category-icon">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <div class="category-info">
+                    <h2>Notifications</h2>
+                    <p>Configure system notifications and alerts</p>
+                </div>
+            </div> -->
+            
+            <!-- <div class="settings-options">
+                <a href="/settings/email-notifications" class="setting-option disabled" title="Coming Soon">
+                    <div class="option-icon">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>Email Notifications</h3>
+                        <p>Configure email notification settings</p>
+                        <span class="option-badge coming-soon">Coming Soon</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a>
+                 -->
+                <!-- <a href="/settings/system-alerts" class="setting-option disabled" title="Coming Soon">
+                    <div class="option-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="option-content">
+                        <h3>System Alerts</h3>
+                        <p>Configure system alert preferences</p>
+                        <span class="option-badge coming-soon">Coming Soon</span>
+                    </div>
+                    <div class="option-action">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                </a> -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Alert Template (Hidden by default) -->
+    <div id="errorAlert" class="alert alert-danger alert-dismissible fade" role="alert" style="display: none;">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span id="errorMessage">An error occurred while loading data.</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
+    <!-- Loading Overlay (Hidden by default) -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin fa-3x"></i>
+            <p>Loading settings...</p>
+        </div>
+    </div>
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Additional styles for production */
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.settings-category {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settings-category:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+.category-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.category-icon {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.category-info h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.category-info p {
+    margin: 0.25rem 0 0 0;
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
+
+.settings-options {
+    padding: 0;
+}
+
+.setting-option {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    border-bottom: 1px solid #f0f0f0;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.setting-option:last-child {
+    border-bottom: none;
+}
+
+.setting-option:hover:not(.disabled) {
+    background: #f8f9fa;
+    transform: translateX(5px);
+    color: inherit;
+    text-decoration: none;
+}
+
+.setting-option.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.option-icon {
+    background: #e9ecef;
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    color: #6c757d;
+}
+
+.option-content {
+    flex: 1;
+}
+
+.option-content h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.option-content p {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.option-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: #e3f2fd;
+    color: #1976d2;
+    margin-top: 0.5rem;
+}
+
+.option-badge.coming-soon {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.option-action {
+    color: #bdc3c7;
+    font-size: 0.875rem;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    text-align: center;
+    color: #6c757d;
+}
+
+.loading-spinner p {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .settings-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .category-header {
+        padding: 1rem;
+    }
+    
+    .setting-option {
+        padding: 0.75rem 1rem;
+    }
+    
+    .setting-option:hover:not(.disabled) {
+        transform: none;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .settings-category {
+        background: #2c3e50;
+        color: #ecf0f1;
+    }
+    
+    .setting-option {
+        border-bottom-color: #34495e;
+    }
+    
+    .setting-option:hover:not(.disabled) {
+        background: #34495e;
+    }
+    
+    .option-content h3 {
+        color: #ecf0f1;
+    }
+    
+    .option-icon {
+        background: #34495e;
+        color: #bdc3c7;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuration
+    const CONFIG = {
+        API_TIMEOUT: 10000,
+        RETRY_ATTEMPTS: 3,
+        RETRY_DELAY: 1000
+    };
+
+    // Utility functions
+    const utils = {
+        showError: function(message) {
+            const errorAlert = document.getElementById('errorAlert');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            errorMessage.textContent = message;
+            errorAlert.style.display = 'block';
+            errorAlert.classList.add('show');
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorAlert.classList.remove('show');
+                setTimeout(() => {
+                    errorAlert.style.display = 'none';
+                }, 150);
+            }, 5000);
+        },
+
+        showLoading: function() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+        },
+
+        hideLoading: function() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        },
+
+        fetchWithRetry: async function(url, options = {}, retries = CONFIG.RETRY_ATTEMPTS) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT);
+                    
+                    const response = await fetch(url, {
+                        ...options,
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    return response;
+                } catch (error) {
+                    console.warn(`Attempt ${i + 1} failed:`, error.message);
+                    
+                    if (i === retries - 1) {
+                        throw error;
+                    }
+                    
+                    // Wait before retrying
+                    await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY * (i + 1)));
+                }
+            }
+        }
+    };
+
+    // Load users count with error handling and retries
+    async function loadUsersCount() {
+        const usersCountElement = document.getElementById('usersCount');
+        
+        try {
+            const response = await utils.fetchWithRetry('/users/api/stats');
+            const data = await response.json();
+            
+            if (data && typeof data.total_users === 'number') {
+                const count = data.total_users;
+                const text = count === 1 ? '1 user' : `${count} users`;
+                usersCountElement.innerHTML = `<i class="fas fa-users"></i> ${text}`;
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } catch (error) {
+            console.error('Error loading users stats:', error);
+            usersCountElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error loading';
+            usersCountElement.classList.add('text-warning');
+            
+            // Show user-friendly error message
+            utils.showError('Failed to load user statistics. Please check your connection and try again.');
+        }
+    }
+
+    // Add enhanced hover effects with performance optimization
+    function initializeHoverEffects() {
+        const settingOptions = document.querySelectorAll('.setting-option:not(.disabled)');
+        
+        settingOptions.forEach(option => {
+            let isHovered = false;
+            
+            option.addEventListener('mouseenter', function() {
+                if (!isHovered) {
+                    isHovered = true;
+                    this.style.transform = 'translateX(5px)';
+                    
+                    // Add subtle animation to icon
+                    const icon = this.querySelector('.option-icon');
+                    if (icon) {
+                        icon.style.transform = 'scale(1.1)';
+                        icon.style.transition = 'transform 0.2s ease';
+                    }
+                }
+            });
+            
+            option.addEventListener('mouseleave', function() {
+                if (isHovered) {
+                    isHovered = false;
+                    this.style.transform = 'translateX(0)';
+                    
+                    // Reset icon animation
+                    const icon = this.querySelector('.option-icon');
+                    if (icon) {
+                        icon.style.transform = 'scale(1)';
+                    }
+                }
+            });
+            
+            // Add click feedback
+            option.addEventListener('mousedown', function() {
+                this.style.transform = 'translateX(3px) scale(0.98)';
+            });
+            
+            option.addEventListener('mouseup', function() {
+                this.style.transform = 'translateX(5px) scale(1)';
+            });
+        });
+    }
+
+    // Add accessibility improvements
+    function initializeAccessibility() {
+        const settingOptions = document.querySelectorAll('.setting-option');
+        
+        settingOptions.forEach(option => {
+            // Add keyboard navigation
+            option.setAttribute('tabindex', '0');
+            
+            // Add keyboard event handlers
+            option.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (!this.classList.contains('disabled')) {
+                        this.click();
+                    }
+                }
+            });
+            
+            // Add focus styles
+            option.addEventListener('focus', function() {
+                this.style.outline = '2px solid #007bff';
+                this.style.outlineOffset = '2px';
+            });
+            
+            option.addEventListener('blur', function() {
+                this.style.outline = 'none';
+            });
+        });
+    }
+
+    // Performance monitoring
+    function initializePerformanceMonitoring() {
+        if ('performance' in window) {
+            window.addEventListener('load', function() {
+                const loadTime = performance.now();
+                console.log(`Settings page loaded in ${loadTime.toFixed(2)}ms`);
+                
+                // Track specific metrics
+                const navigation = performance.getEntriesByType('navigation')[0];
+                if (navigation) {
+                    console.log('Performance metrics:', {
+                        domContentLoaded: navigation.domContentLoadedEventEnd - navigation.domContentLoadedEventStart,
+                        loadComplete: navigation.loadEventEnd - navigation.loadEventStart
+                    });
+                }
+            });
+        }
+    }
+
+    // Error boundary for uncaught errors
+    window.addEventListener('error', function(event) {
+        console.error('Uncaught error:', event.error);
+        utils.showError('An unexpected error occurred. Please refresh the page and try again.');
+    });
+
+    // Initialize all features
+    try {
+        loadUsersCount();
+        initializeHoverEffects();
+        initializeAccessibility();
+        initializePerformanceMonitoring();
+        
+        console.log('Settings page initialized successfully');
+    } catch (error) {
+        console.error('Error initializing settings page:', error);
+        utils.showError('Failed to initialize page features. Some functionality may be limited.');
+    }
+
+    // Add visibility change handling for tab switching
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            // Refresh data when user returns to tab
+            loadUsersCount();
+        }
+    });
+});
+</script>
+{% endblock %}

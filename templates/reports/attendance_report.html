@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_title }}</title>
+    <style>
+        /* PDF-optimized styles with IUEA Maroon Theme */
+        @page {
+            size: A4;
+            margin: 0.7in;
+            @bottom-center {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 10px;
+                color: #666;
+            }
+        }
+        
+        :root {
+            --maroon-primary: #8B1538;    /* IUEA Maroon */
+            --maroon-dark: #6B1029;       /* Darker maroon */
+            --maroon-light: #A64B63;      /* Lighter maroon */
+            --maroon-bg: #F5E6EA;         /* Very light maroon background */
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #333;
+            background: white;
+        }
+        
+        .report-container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+        }
+        
+        /* Header Styles */
+        .report-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px; /* Reduced from 30px */
+            padding-bottom: 5px; /* Reduced from 20px */
+            border-bottom: 3px solid var(--maroon-primary);
+        }
+        
+        .company-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .company-logo {
+            width: 200px;
+            height: 200px;
+            object-fit: contain;
+        }
+        
+        .company-details h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--maroon-primary);
+            margin-bottom: 5px;
+        }
+        
+        .company-details p {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 2px;
+        }
+        
+        .report-info {
+            text-align: right;
+        }
+        
+        .report-info h2 {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--maroon-primary);
+            margin-bottom: 5px;
+        }
+        
+        .report-info p {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 2px;
+        }
+        
+        /* Employee Section */
+        .employee-section {
+            background: var(--maroon-bg);
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 5px solid var(--maroon-primary);
+        }
+        
+        .employee-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+        }
+        
+        .employee-details h3 {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--maroon-primary);
+            margin-bottom: 10px;
+        }
+        
+        .employee-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .detail-item {
+            display: flex;
+            margin-bottom: 5px;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            width: 120px;
+            color: #374151;
+        }
+        
+        .detail-value {
+            color: #6b7280;
+        }
+        
+        .employee-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 3px solid #e5e7eb;
+        }
+        
+        .employee-initials {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            background: var(--maroon-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        /* Summary Section */
+        .summary-section {
+            margin-bottom: 25px;
+        }
+        
+        .summary-section h3 {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--maroon-primary);
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        
+        .summary-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .summary-card .value {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--maroon-primary);
+            margin-bottom: 5px;
+        }
+        
+        .summary-card .label {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        
+        .summary-card.primary .value { color: var(--maroon-primary); }
+        .summary-card.success .value { color: #059669; }
+        .summary-card.warning .value { color: #d97706; }
+        .summary-card.info .value { color: var(--maroon-dark); }
+        
+        /* Table Styles */
+        .attendance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .attendance-table th {
+            background: var(--maroon-bg);
+            color: var(--maroon-dark);
+            font-weight: bold;
+            padding: 6px 5px;
+            text-align: left;
+            border-bottom: 2px solid var(--maroon-primary);
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        
+        .attendance-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 11px;
+        }
+        
+        .attendance-table tr:nth-child(even) {
+            background: #f9fafb;
+        }
+        
+        .attendance-table tr:hover {
+            background: #f3f4f6;
+        }
+        
+        /* Status Badges */
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-align: center;
+            display: inline-block;
+            min-width: 60px;
+        }
+        
+        .status-present {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-absent {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status-late {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-half-day {
+            background: var(--maroon-bg);
+            color: var(--maroon-dark);
+        }
+        
+        /* Notes */
+        .notes {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        
+        .note-item {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 500;
+            display: inline-block;
+            width: fit-content;
+        }
+        
+        .note-late {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .note-early {
+            background: var(--maroon-bg);
+            color: var(--maroon-dark);
+        }
+        
+        /* Date Cell */
+        .date-cell {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .date-number {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--maroon-primary);
+            width: 25px;
+            text-align: center;
+        }
+        
+        .date-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .date-month {
+            font-size: 9px;
+            color: #6b7280;
+            text-transform: uppercase;
+        }
+        
+        .date-year {
+            font-size: 10px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .date-day {
+            font-size: 9px;
+            color: #6b7280;
+        }
+        
+        /* Time cells */
+        .time-cell {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .time-main {
+            font-size: 12px;
+            color: #374151;
+        }
+        
+        .time-expected {
+            font-size: 9px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        
+        /* Hours cell */
+        .hours-cell {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: var(--maroon-primary);
+            text-align: center;
+        }
+        
+        /* Footer */
+        .report-footer {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .footer-info {
+            font-size: 10px;
+            color: #6b7280;
+        }
+        
+        .footer-logo {
+            opacity: 0.5;
+        }
+        
+        /* Print optimizations */
+        @media print {
+            body { print-color-adjust: exact; }
+            .report-container { box-shadow: none; }
+        }
+        
+        /* No records message */
+        .no-records {
+            text-align: center;
+            padding: 40px 20px;
+            background: var(--maroon-bg);
+            border-radius: 8px;
+            border: 2px dashed var(--maroon-light);
+        }
+        
+        .no-records h4 {
+            color: var(--maroon-dark);
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .no-records p {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+        
+        /* Records section header */
+        .records-section h3 {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--maroon-primary);
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <!-- Report Header -->
+        <div class="report-header">
+            <div class="company-info">
+                {% if logo_url %}
+                    <img src="{{ logo_url }}" alt="IUEA Logo" class="company-logo">
+                {% else %}
+                    <div class="employee-initials" style="width: 120px; height: 120px; font-size: 24px;">IUEA</div>
+                {% endif %}
+                <div class="company-details">
+                    <!-- <h1>{{ company_name or "IUEA" }}</h1> -->
+                    <!-- <p>International University of East Africa</p> -->
+                    <!-- <p>Employee Attendance Management System</p> -->
+                </div>
+            </div>
+            <div class="report-info">
+                <h2>Attendance Report</h2>
+                <p><strong>Report Period:</strong> {{ report_period }}</p>
+                <p><strong>Generated:</strong> {{ generated_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
+                <p><strong>Generated by:</strong> {{ generated_by }}</p>
+            </div>
+        </div>
+
+        <!-- Employee Information -->
+        <div class="employee-section">
+            <div class="employee-info">
+                <div class="employee-details">
+                    <h3>Employee Information</h3>
+                    <div class="employee-grid">
+                        <div>
+                            <div class="detail-item">
+                                <span class="detail-label">Name:</span>
+                                <span class="detail-value">{{ employee.first_name }} {{ employee.last_name }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Employee ID:</span>
+                                <span class="detail-value">{{ employee.employee_id }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Biometric ID:</span>
+                                <span class="detail-value">{{ employee.biometric_id or 'Not Assigned' }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Email:</span>
+                                <span class="detail-value">{{ employee.email }}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="detail-item">
+                                <span class="detail-label">Department:</span>
+                                <span class="detail-value">{{ department_name }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Position:</span>
+                                <span class="detail-value">{{ employee.position }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Status:</span>
+                                <span class="detail-value">{{ employee.status.value }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Phone:</span>
+                                <span class="detail-value">{{ employee.phone or 'Not Provided' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="employee-avatar">
+                    {% if employee.photo %}
+                        <img src="static/{{ employee.photo }}" alt="{{ employee.first_name }} {{ employee.last_name }}" class="employee-photo">
+                    {% else %}
+                        <div class="employee-initials">
+                            {{ employee.first_name[0] }}{{ employee.last_name[0] }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Statistics -->
+        <div class="summary-section">
+            <h3>Attendance Summary</h3>
+            <div class="summary-grid">
+                <div class="summary-card primary">
+                    <div class="value">{{ "%.1f"|format(summary.attendance_percentage) }}%</div>
+                    <div class="label">Attendance Rate</div>
+                </div>
+                <div class="summary-card success">
+                    <div class="value">{{ summary.present_days }}</div>
+                    <div class="label">Present Days</div>
+                </div>
+                <div class="summary-card warning">
+                    <div class="value">{{ summary.late_days }}</div>
+                    <div class="label">Late Days</div>
+                </div>
+                <div class="summary-card info">
+                    <div class="value">{{ "%.1f"|format(summary.total_hours) }}h</div>
+                    <div class="label">Total Hours</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Records -->
+        <div class="records-section">
+            <h3>Detailed Attendance Records</h3>
+            
+            {% if records %}
+                <table class="attendance-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Date</th>
+                            <th style="width: 80px;">Day</th>
+                            <th style="width: 80px;">Check In</th>
+                            <th style="width: 80px;">Check Out</th>
+                            <th style="width: 60px;">Hours</th>
+                            <th style="width: 70px;">Status</th>
+                            <th style="width: 80px;">Shift</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td>
+                                <div class="date-cell">
+                                    <div class="date-number">{{ record.date.strftime('%d') }}</div>
+                                    <div class="date-info">
+                                        <div class="date-month">{{ record.date.strftime('%b') }}</div>
+                                        <div class="date-year">{{ record.date.strftime('%Y') }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="date-day">{{ record.day_name }}</div>
+                            </td>
+                            <td>
+                                {% if record.check_in_time %}
+                                    <div class="time-cell">
+                                        <div class="time-main">{{ record.check_in_time.strftime('%H:%M') }}</div>
+                                        {% if record.expected_start_time %}
+                                            <div class="time-expected">Exp: {{ record.expected_start_time.strftime('%H:%M') }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span style="color: #9ca3af;">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.check_out_time %}
+                                    <div class="time-cell">
+                                        <div class="time-main">{{ record.check_out_time.strftime('%H:%M') }}</div>
+                                        {% if record.expected_end_time %}
+                                            <div class="time-expected">Exp: {{ record.expected_end_time.strftime('%H:%M') }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span style="color: #9ca3af;">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.total_working_hours > 0 %}
+                                    <div class="hours-cell">{{ "%.1f"|format(record.total_working_hours) }}h</div>
+                                {% else %}
+                                    <span style="color: #9ca3af;">0h</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.status.lower() == 'present' %}
+                                    <span class="status-badge status-present">Present</span>
+                                {% elif record.status.lower() == 'absent' %}
+                                    <span class="status-badge status-absent">Absent</span>
+                                {% elif record.status.lower() == 'late' %}
+                                    <span class="status-badge status-late">Late</span>
+                                {% elif record.status.lower() == 'half_day' %}
+                                    <span class="status-badge status-half-day">Half Day</span>
+                                {% else %}
+                                    <span class="status-badge">{{ record.status.title() }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size: 10px; color: #6b7280;">
+                                {{ record.shift_name }}
+                            </td>
+                            <td>
+                                <div class="notes">
+                                    {% if record.is_late and record.late_minutes > 0 %}
+                                        <span class="note-item note-late">{{ record.late_minutes }}min late</span>
+                                    {% endif %}
+                                    {% if record.is_early_departure and record.early_departure_minutes > 0 %}
+                                        <span class="note-item note-early">{{ record.early_departure_minutes }}min early</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-records">
+                    <h4>No Attendance Records Found</h4>
+                    <p>No attendance data available for the selected period: {{ report_period }}</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Report Footer -->
+        <div class="report-footer">
+            <div class="footer-info">
+                <p><strong>Report Summary:</strong> {{ records|length }} attendance records processed</p>
+                <p><strong>Period:</strong> {{ start_date.strftime('%B %d, %Y') }} to {{ end_date.strftime('%B %d, %Y') }}</p>
+                <p><strong>System:</strong> IUEA Employee Attendance Management System</p>
+            </div>
+            <div class="footer-logo">
+                {% if logo_url %}
+                    <img src="{{ logo_url }}" alt="IUEA Logo" style="width: 60px; height: 60px; opacity: 0.3;">
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

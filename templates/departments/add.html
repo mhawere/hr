@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container">
+    <div class="form-card">
+        <form method="post" class="department-form">
+            <div class="form-section">
+                <h3>Department Information</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="name">Department Name</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="code">Department Code</label>
+                        <input type="text" id="code" name="code" required maxlength="10">
+                        <small>Used for generating employee IDs (e.g., HR, IT, FIN)</small>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Add Department
+                </button>
+                <a href="/departments/" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

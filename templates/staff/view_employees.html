@@ -1,0 +1,1480 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="employees-container">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">
+                <i class="fas fa-users"></i>
+                Staff Management
+            </h1>
+            <div class="stats-summary">
+                <span class="stat-item">
+                    <i class="fas fa-user-check"></i>
+                    {{ total_count }} Total
+                </span>
+                {% if active_count is defined %}
+                <span class="stat-item">
+                    <i class="fas fa-users"></i>
+                    {{ active_count }} Active
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="/staff/add" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 
+                <span class="btn-text">Add Employee</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Search and Filter Controls -->
+    <div class="search-filter-section">
+        <form method="GET" action="/staff/view" class="filter-form" id="filterForm">
+            <div class="filter-row">
+                <!-- Search Box -->
+                <div class="filter-group">
+                    <label for="search" class="filter-label">Search</label>
+                    <div class="search-input-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input 
+                            type="text" 
+                            id="search" 
+                            name="search" 
+                            value="{{ search }}" 
+                            placeholder="Search by name, email, ID, or position..."
+                            class="search-input"
+                            autocomplete="off"
+                        >
+                        {% if search %}
+                        <button type="button" class="clear-search" onclick="clearSearch()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Department Filter -->
+                <div class="filter-group">
+                    <label for="department_id" class="filter-label">Department</label>
+                    <select name="department_id" id="department_id" class="filter-select">
+                        <option value="">All Departments</option>
+                        {% for department in departments %}
+                        <option value="{{ department.id }}" 
+                                {% if department_id == department.id %}selected{% endif %}>
+                            {{ department.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="filter-group">
+                    <label for="status_filter" class="filter-label">Status</label>
+                    <select name="status_filter" id="status_filter" class="filter-select">
+                        <option value="">All Status</option>
+                        {% for status in status_options %}
+                        <option value="{{ status }}" 
+                                {% if status_filter == status %}selected{% endif %}>
+                            {{ status|title }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Per Page -->
+                <div class="filter-group">
+                    <label for="per_page" class="filter-label">Show</label>
+                    <select name="per_page" id="per_page" class="filter-select">
+                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+
+                <!-- Sort Options -->
+                <div class="filter-group">
+                    <label for="sort_by" class="filter-label">Sort By</label>
+                    <select name="sort_by" id="sort_by" class="filter-select">
+                        <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>Newest First</option>
+                        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name A-Z</option>
+                        <option value="employee_id" {% if sort_by == 'employee_id' %}selected{% endif %}>Employee ID</option>
+                        <option value="department" {% if sort_by == 'department' %}selected{% endif %}>Department</option>
+                    </select>
+                </div>
+
+                <!-- Filter Actions -->
+                <div class="filter-group filter-actions">
+                    <button type="submit" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-filter"></i>
+                        Filter
+                    </button>
+                    <a href="/staff/view" class="btn btn-outline btn-sm">
+                        <i class="fas fa-times"></i>
+                        Clear
+                    </a>
+                </div>
+            </div>
+
+            <!-- Keep current page when filtering -->
+            <input type="hidden" name="page" value="1" id="filterPage">
+        </form>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading employees...</span>
+        </div>
+    </div>
+
+    {% if employees %}
+        <!-- Results Summary and View Toggle -->
+        <div class="results-header">
+            <div class="results-info">
+                <span class="results-count">
+                    Showing {{ ((current_page - 1) * per_page) + 1 }} to 
+                    {{ ((current_page - 1) * per_page) + employees|length }} of 
+                    {{ total_count }} employees
+                </span>
+                {% if search or department_id or status_filter %}
+                <span class="filter-indicator">
+                    <i class="fas fa-filter"></i>
+                    Filtered results
+                </span>
+                {% endif %}
+            </div>
+            
+            <div class="view-controls">
+                <div class="view-toggle">
+                    <button class="view-btn active" data-view="table" aria-label="Table View">
+                        <i class="fas fa-table"></i>
+                        <span>Table</span>
+                    </button>
+                    <button class="view-btn" data-view="cards" aria-label="Card View">
+                        <i class="fas fa-th-large"></i>
+                        <span>Cards</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table View -->
+        <div class="table-view" id="tableView">
+            <div class="table-container">
+                <div class="table-wrapper">
+                    <table class="data-table" id="employeesTable">
+                        <thead>
+                            <tr>
+                                <th class="col-photo">
+                                    <div class="th-content">
+                                        <i class="fas fa-image"></i>
+                                        <span>Photo</span>
+                                    </div>
+                                </th>
+                                <th class="col-id">
+                                    <div class="th-content">
+                                        <i class="fas fa-hashtag"></i>
+                                        <span>Employee ID</span>
+                                    </div>
+                                </th>
+                                <th class="col-name">
+                                    <div class="th-content">
+                                        <i class="fas fa-user"></i>
+                                        <span>Name</span>
+                                    </div>
+                                </th>
+                                <th class="col-biometric">
+                                    <div class="th-content">
+                                        <i class="fas fa-fingerprint"></i>
+                                        <span>Biometric ID</span>
+                                    </div>
+                                </th>
+                                <th class="col-department">
+                                    <div class="th-content">
+                                        <i class="fas fa-building"></i>
+                                        <span>Department</span>
+                                    </div>
+                                </th>
+                                <th class="col-position">
+                                    <div class="th-content">
+                                        <i class="fas fa-briefcase"></i>
+                                        <span>Position</span>
+                                    </div>
+                                </th>
+                                <th class="col-status">
+                                    <div class="th-content">
+                                        <i class="fas fa-circle"></i>
+                                        <span>Status</span>
+                                    </div>
+                                </th>
+                                <th class="col-actions">
+                                    <div class="th-content">
+                                        <i class="fas fa-cogs"></i>
+                                        <span>Actions</span>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for employee in employees %}
+                            <tr class="employee-row" data-employee-id="{{ employee.id }}">
+                                <td class="col-photo">
+                                    <div class="employee-photo-container">
+                                        {% if employee.photo %}
+                                            <img src="/static/{{ employee.photo }}" 
+                                                 alt="{{ employee.first_name }} {{ employee.last_name }}" 
+                                                 class="employee-photo"
+                                                 loading="lazy">
+                                        {% else %}
+                                            <div class="employee-photo-placeholder">
+                                                <i class="fas fa-user"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                
+                                <td class="col-id">
+                                    <span class="employee-id-badge">{{ employee.employee_id }}</span>
+                                </td>
+                                
+                                <td class="col-name">
+                                    <div class="employee-name">
+                                        <strong>{{ employee.first_name }} {{ employee.last_name }}</strong>
+                                        <div class="employee-email">{{ employee.email }}</div>
+                                    </div>
+                                </td>
+                                
+                                <td class="col-biometric">
+                                    {% if employee.biometric_id %}
+                                        <span class="biometric-badge">
+                                            <i class="fas fa-fingerprint"></i>
+                                            {{ employee.biometric_id }}
+                                        </span>
+                                    {% else %}
+                                        <span class="no-biometric">
+                                            <i class="fas fa-minus"></i>
+                                            Not set
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                
+                                <td class="col-department">
+                                    {% if employee.department %}
+                                        <span class="dept-badge">{{ employee.department.name }}</span>
+                                    {% else %}
+                                        <span class="no-dept">N/A</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <td class="col-position">
+                                    <span class="position-text">{{ employee.position }}</span>
+                                </td>
+                                
+                                <td class="col-status">
+                                    <div class="status-indicator">
+                                        <span class="status-dot status-{{ employee.status.value.lower().replace(' ', '-') }}"
+                                              title="{{ employee.status.value }}">
+                                        </span>
+                                        <span class="status-text">{{ employee.status.value }}</span>
+                                    </div>
+                                </td>
+                                
+                                <td class="col-actions">
+                                    <div class="action-buttons">
+                                        <a href="/staff/view/{{ employee.id }}" 
+                                           class="btn btn-xs btn-info" 
+                                           title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="/staff/edit/{{ employee.id }}" 
+                                           class="btn btn-xs btn-primary" 
+                                           title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="/leave/employee/{{ employee.id }}" 
+                                           class="btn btn-xs btn-warning" 
+                                           title="Leave Management">
+                                            <i class="fas fa-calendar-alt"></i>
+                                        </a>
+                                        {% if employee.biometric_id %}
+                                            <a href="/biometric/employee/{{ employee.id }}/attendance" 
+                                               class="btn btn-xs btn-success" 
+                                               title="View Attendance">
+                                                <i class="fas fa-calendar-check"></i>
+                                            </a>
+                                        {% else %}
+                                            <a href="/staff/edit/{{ employee.id }}" 
+                                               class="btn btn-xs btn-secondary" 
+                                               title="Setup Biometric">
+                                                <i class="fas fa-fingerprint"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card View -->
+        <div class="cards-view" id="cardsView" style="display: none;">
+            <div class="employees-grid">
+                {% for employee in employees %}
+                <div class="employee-card" data-employee-id="{{ employee.id }}">
+                    <div class="card-header">
+                        <div class="employee-photo-container">
+                            {% if employee.photo %}
+                                <img src="/static/{{ employee.photo }}" 
+                                     alt="{{ employee.first_name }} {{ employee.last_name }}" 
+                                     class="employee-photo-large"
+                                     loading="lazy">
+                            {% else %}
+                                <div class="employee-photo-placeholder-large">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="employee-basic-info">
+                            <h3>{{ employee.first_name }} {{ employee.last_name }}</h3>
+                            <span class="employee-id-badge">{{ employee.employee_id }}</span>
+                        </div>
+                        <div class="card-status">
+                            <span class="status-dot status-{{ employee.status.value.lower().replace(' ', '-') }}"
+                                  title="{{ employee.status.value }}">
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="info-row">
+                            <div class="info-item">
+                                <i class="fas fa-envelope"></i>
+                                <span>{{ employee.email }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="info-row">
+                            <div class="info-item">
+                                <i class="fas fa-building"></i>
+                                <span>{{ employee.department.name if employee.department else 'N/A' }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="info-row">
+                            <div class="info-item">
+                                <i class="fas fa-briefcase"></i>
+                                <span>{{ employee.position }}</span>
+                            </div>
+                        </div>
+                        
+                        {% if employee.biometric_id %}
+                        <div class="info-row">
+                            <div class="info-item">
+                                <i class="fas fa-fingerprint"></i>
+                                <span>{{ employee.biometric_id }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="card-actions">
+                        <div class="card-action-grid">
+                            <a href="/staff/view/{{ employee.id }}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                            <a href="/staff/edit/{{ employee.id }}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-edit"></i> Edit
+                            </a>
+                            <a href="/leave/employee/{{ employee.id }}" class="btn btn-sm btn-warning">
+                                <i class="fas fa-calendar-alt"></i> Leave
+                            </a>
+                            {% if employee.biometric_id %}
+                                <a href="/biometric/employee/{{ employee.id }}/attendance" class="btn btn-sm btn-success">
+                                    <i class="fas fa-calendar-check"></i> Attendance
+                                </a>
+                            {% else %}
+                                <a href="/staff/edit/{{ employee.id }}" class="btn btn-sm btn-secondary">
+                                    <i class="fas fa-fingerprint"></i> Setup Bio
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="pagination-section">
+            <div class="pagination-info">
+                <span>Page {{ current_page }} of {{ total_pages }}</span>
+            </div>
+            
+            <nav class="pagination-nav" aria-label="Employee pagination">
+                <ul class="pagination">
+                    <!-- First Page -->
+                    {% if current_page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ build_pagination_url(1) }}" aria-label="First page">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Previous Page -->
+                    {% if current_page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ build_pagination_url(current_page - 1) }}" aria-label="Previous page">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Page Numbers -->
+                    {% set start_page = [current_page - 2, 1]|max %}
+                    {% set end_page = [current_page + 2, total_pages]|min %}
+                    
+                    {% if start_page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ build_pagination_url(1) }}">1</a>
+                    </li>
+                    {% if start_page > 2 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {% for page_num in range(start_page, end_page + 1) %}
+                    <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                        {% if page_num == current_page %}
+                        <span class="page-link current">{{ page_num }}</span>
+                        {% else %}
+                        <a class="page-link" href="{{ build_pagination_url(page_num) }}">{{ page_num }}</a>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                    
+                    {% if end_page < total_pages %}
+                    {% if end_page < total_pages - 1 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ build_pagination_url(total_pages) }}">{{ total_pages }}</a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Next Page -->
+                    {% if current_page < total_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ build_pagination_url(current_page + 1) }}" aria-label="Next page">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Last Page -->
+                    {% if current_page < total_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ build_pagination_url(total_pages) }}" aria-label="Last page">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            
+            <!-- Quick Page Jump -->
+            <div class="page-jump">
+                <form method="GET" action="/staff/view" class="jump-form">
+                    <!-- Preserve filters -->
+                    {% if search %}
+                    <input type="hidden" name="search" value="{{ search }}">
+                    {% endif %}
+                    {% if department_id %}
+                    <input type="hidden" name="department_id" value="{{ department_id }}">
+                    {% endif %}
+                    {% if status_filter %}
+                    <input type="hidden" name="status_filter" value="{{ status_filter }}">
+                    {% endif %}
+                    {% if per_page %}
+                    <input type="hidden" name="per_page" value="{{ per_page }}">
+                    {% endif %}
+                    {% if sort_by %}
+                    <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                    {% endif %}
+                    
+                    <label for="jumpPage">Go to page:</label>
+                    <input type="number" 
+                           id="jumpPage" 
+                           name="page" 
+                           min="1" 
+                           max="{{ total_pages }}" 
+                           value="{{ current_page }}"
+                           class="page-jump-input">
+                    <button type="submit" class="btn btn-sm btn-secondary">Go</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+    {% else %}
+        <!-- Empty State -->
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            {% if search or department_id or status_filter %}
+            <h3>No employees found</h3>
+            <p>No employees match your current filters. Try adjusting your search criteria.</p>
+            <a href="/staff/view" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Clear Filters
+            </a>
+            {% else %}
+            <h3>No employees found</h3>
+            <p>Start building your team by adding your first employee</p>
+            <a href="/staff/add" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus"></i> Add First Employee
+            </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<style>
+/* Enhanced Employees Container */
+.employees-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem;
+    width: 100%;
+}
+
+/* Page Header */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.page-title {
+    margin: 0;
+    font-size: 1.8rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stats-summary {
+    display: flex;
+    gap: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--secondary-color);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.stat-item i {
+    color: var(--primary-color);
+}
+
+/* Search and Filter Section */
+.search-filter-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 1.5rem;
+}
+
+.filter-form {
+    margin: 0;
+}
+
+.filter-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto auto auto;
+    gap: 1rem;
+    align-items: end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    color: var(--text-secondary);
+    z-index: 1;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.75rem 1rem 0.75rem 2.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(107, 30, 30, 0.1);
+}
+
+.clear-search {
+    position: absolute;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: color 0.2s ease;
+}
+
+.clear-search:hover {
+    color: var(--danger-color);
+}
+
+.filter-select {
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(107, 30, 30, 0.1);
+}
+
+.filter-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    text-align: center;
+    color: var(--primary-color);
+}
+
+.loading-spinner i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+/* Results Header */
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--secondary-color);
+    border-radius: 0.5rem;
+}
+
+.results-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.results-count {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.filter-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+}
+
+/* View Controls */
+.view-toggle {
+    display: flex;
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.view-btn {
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.view-btn.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.view-btn:hover:not(.active) {
+    background: var(--secondary-color);
+}
+
+/* Enhanced Table Styles */
+.table-container {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: white;
+    padding: 1rem 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.th-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.data-table td {
+    padding: 1rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+    background: var(--secondary-color);
+}
+
+/* Column Widths */
+.col-photo { width: 8%; }
+.col-id { width: 12%; }
+.col-name { width: 20%; }
+.col-biometric { width: 12%; }
+.col-department { width: 15%; }
+.col-position { width: 15%; }
+.col-status { width: 10%; }
+.col-actions { width: 8%; }
+
+/* Employee Name Enhancement */
+.employee-name {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.employee-email {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Status Enhancement */
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-text {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+/* Card View Enhancements */
+.employees-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.employee-card {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #f0f0f0;
+}
+
+.employee-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+
+/* Pagination Styles */
+.pagination-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-top: 1.5rem;
+}
+
+.pagination-info {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.pagination {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 0.25rem;
+}
+
+.page-item {
+    margin: 0;
+}
+
+.page-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    background: white;
+    color: var(--text-primary);
+    text-decoration: none;
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+    min-width: 40px;
+    min-height: 40px;
+}
+
+.page-link:hover {
+    background: var(--secondary-color);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.page-item.active .page-link {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.page-item.disabled .page-link {
+    color: var(--text-muted);
+    cursor: not-allowed;
+    background: var(--secondary-color);
+}
+
+/* Page Jump */
+.page-jump {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.jump-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+.page-jump-input {
+    width: 80px;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    text-align: center;
+}
+
+/* Enhanced Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    color: #ddd;
+    margin-bottom: 1.5rem;
+}
+
+.empty-state h3 {
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+}
+
+/* Button Styles */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 0.5rem;
+}
+
+.btn-xs {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.btn-sm {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+.btn-lg {
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+    color: white;
+}
+
+.btn-secondary {
+    background: var(--secondary-color);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+    color: var(--text-primary);
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-outline:hover {
+    background: var(--secondary-color);
+    color: var(--text-primary);
+}
+
+.btn-info { background: #06b6d4; color: white; }
+.btn-warning { background: #f59e0b; color: white; }
+.btn-success { background: #10b981; color: white; }
+
+.btn-info:hover { background: #0891b2; color: white; }
+.btn-warning:hover { background: #d97706; color: white; }
+.btn-success:hover { background: #059669; color: white; }
+
+/* Badge Styles */
+.employee-id-badge {
+    background: var(--primary-color);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-family: monospace;
+    font-weight: 600;
+    font-size: 0.8rem;
+    display: inline-block;
+}
+
+.biometric-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    background-color: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+.no-biometric {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+.dept-badge {
+    background: #f3f4f6;
+    color: var(--text-primary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.status-active {
+    background: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.status-dot.status-not-active {
+    background: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+/* Photo Styles */
+.employee-photo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.employee-photo {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border-color);
+}
+
+.employee-photo-placeholder {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: var(--secondary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    border: 2px solid var(--border-color);
+}
+
+.employee-photo-large {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(255,255,255,0.3);
+}
+
+.employee-photo-placeholder-large {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    border: 3px solid rgba(255,255,255,0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .filter-row {
+        grid-template-columns: 2fr 1fr 1fr auto auto;
+        gap: 0.75rem;
+    }
+    
+    .search-input {
+        min-width: 250px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .filter-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .filter-actions {
+        flex-direction: row;
+        justify-content: center;
+    }
+    
+    .results-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .pagination-section {
+        flex-direction: column;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .employees-container {
+        padding: 0.5rem;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .stats-summary {
+        justify-content: center;
+    }
+    
+    .search-filter-section {
+        padding: 1rem;
+    }
+    
+    /* Auto-switch to cards view on mobile */
+    #tableView {
+        display: none !important;
+    }
+    
+    #cardsView {
+        display: block !important;
+    }
+    
+    .view-toggle {
+        display: none;
+    }
+    
+    .employees-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .filter-actions {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .employee-card {
+        margin: 0;
+        border-radius: 0.5rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .search-filter-section,
+    .pagination-section,
+    .view-controls,
+    .header-actions,
+    .col-actions {
+        display: none !important;
+    }
+    
+    .data-table {
+        font-size: 0.8rem;
+    }
+    
+    .employee-card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
+</style>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEmployeeList();
+});
+
+function initializeEmployeeList() {
+    // View toggle functionality
+    const viewButtons = document.querySelectorAll('.view-btn');
+    const tableView = document.getElementById('tableView');
+    const cardsView = document.getElementById('cardsView');
+    
+    if (viewButtons.length > 0) {
+        viewButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                viewButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                const view = this.getAttribute('data-view');
+                if (view === 'table') {
+                    tableView.style.display = 'block';
+                    cardsView.style.display = 'none';
+                } else {
+                    tableView.style.display = 'none';
+                    cardsView.style.display = 'block';
+                }
+                
+                // Save preference
+                localStorage.setItem('employeeViewPreference', view);
+            });
+        });
+        
+        // Restore view preference
+        const savedView = localStorage.getItem('employeeViewPreference');
+        if (savedView && window.innerWidth > 768) {
+            const savedViewBtn = document.querySelector(`[data-view="${savedView}"]`);
+            if (savedViewBtn) {
+                savedViewBtn.click();
+            }
+        }
+    }
+    
+    // Auto-submit form on filter changes
+    const filterSelects = document.querySelectorAll('#department_id, #status_filter, #per_page, #sort_by');
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            // Reset to page 1 when filtering
+            document.getElementById('filterPage').value = '1';
+            document.getElementById('filterForm').submit();
+        });
+    });
+    
+    // Debounced search
+    const searchInput = document.getElementById('search');
+    let searchTimeout;
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                // Reset to page 1 when searching
+                document.getElementById('filterPage').value = '1';
+                document.getElementById('filterForm').submit();
+            }, 500); // 500ms delay
+        });
+    }
+    
+    // Handle responsive view switching
+    function handleResponsiveView() {
+        const isMobile = window.innerWidth <= 768;
+        const tableViewBtn = document.querySelector('[data-view="table"]');
+        const cardsViewBtn = document.querySelector('[data-view="cards"]');
+        
+        if (isMobile) {
+            // Force cards view on mobile
+            if (tableViewBtn) tableViewBtn.classList.remove('active');
+            if (cardsViewBtn) cardsViewBtn.classList.add('active');
+            if (tableView) tableView.style.display = 'none';
+            if (cardsView) cardsView.style.display = 'block';
+        }
+    }
+    
+    handleResponsiveView();
+    window.addEventListener('resize', handleResponsiveView);
+    
+    // Loading state for form submissions
+    const forms = document.querySelectorAll('form');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    forms.forEach(form => {
+        form.addEventListener('submit', function() {
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'flex';
+            }
+        });
+    });
+    
+    // Initialize lazy loading for images
+    if ('IntersectionObserver' in window) {
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    img.src = img.dataset.src || img.src;
+                    img.classList.remove('lazy');
+                    observer.unobserve(img);
+                }
+            });
+        });
+        
+        document.querySelectorAll('img[loading="lazy"]').forEach(img => {
+            imageObserver.observe(img);
+        });
+    }
+}
+
+// Clear search function
+function clearSearch() {
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+        searchInput.value = '';
+        document.getElementById('filterPage').value = '1';
+        document.getElementById('filterForm').submit();
+    }
+}
+
+// Quick actions
+function viewEmployee(employeeId) {
+    window.location.href = `/staff/view/${employeeId}`;
+}
+
+function editEmployee(employeeId) {
+    window.location.href = `/staff/edit/${employeeId}`;
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + K to focus search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.getElementById('search');
+        if (searchInput) {
+            searchInput.focus();
+        }
+    }
+    
+    // Ctrl/Cmd + N to add new employee
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        window.location.href = '/staff/add';
+    }
+});
+
+// URL parameter helper for pagination
+function getUrlWithParams(params) {
+    const url = new URL(window.location);
+    Object.keys(params).forEach(key => {
+        if (params[key] && params[key] !== '') {
+            url.searchParams.set(key, params[key]);
+        } else {
+            url.searchParams.delete(key);
+        }
+    });
+    return url.toString();
+}
+</script>
+{% endblock %}
+{% endblock %}

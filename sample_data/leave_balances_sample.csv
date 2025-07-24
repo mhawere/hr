@@ -1,0 +1,3 @@
+id,employee_id,leave_type_id,year,earned_days,max_entitled_days,used_days,remaining_days,last_calculated,updated_at
+1,6,1,2025,6.8,7.5,5.0,1.8,2025-06-25 07:08:20.987172,2025-06-25 07:08:20.987181
+2,7,1,2025,2.2,2.5,2.0,0.2,2025-06-26 07:43:44.587291,2025-06-26 07:43:44.587315

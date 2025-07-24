@@ -1,0 +1,655 @@
+<!-- templates/biometric/attendance_badge_report.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="attendance-badge-report">
+    <div class="page-header">
+        <h1><i class="fas fa-medal"></i> Attendance Badge Report</h1>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="processAllBadges()">
+                <i class="fas fa-sync"></i> Process All Badges
+            </button>
+            <button class="btn btn-info" onclick="refreshReport()">
+                <i class="fas fa-refresh"></i> Refresh Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-number">{{ total_employees }}</div>
+                <div class="stat-label">Total Employees</div>
+            </div>
+        </div>
+        
+        <div class="stat-card gold">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-number">{{ badge_stats.get('perfect_month', 0) }}</div>
+                <div class="stat-label">Perfect Month Badges</div>
+            </div>
+        </div>
+        
+        <div class="stat-card silver">
+            <div class="stat-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-number">{{ badge_stats.get('punctuality_champion', 0) }}</div>
+                <div class="stat-label">Punctuality Champions</div>
+            </div>
+        </div>
+        
+        <div class="stat-card platinum">
+            <div class="stat-icon">
+                <i class="fas fa-star"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-number">{{ badge_stats.get('attendance_superstar', 0) }}</div>
+                <div class="stat-label">Attendance Superstars</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Badge Processing Controls -->
+    <div class="processing-section">
+        <h2>Badge Processing</h2>
+        <div class="processing-controls">
+            <div class="form-group">
+                <label for="start_date">Start Date for Processing:</label>
+                <input type="date" id="start_date" value="2024-01-10">
+            </div>
+            <div class="processing-actions">
+                <button class="btn btn-success" onclick="processAllBadges()">
+                    <i class="fas fa-play"></i> Process All Employee Badges
+                </button>
+                <button class="btn btn-warning" onclick="showEmployeeSelector()">
+                    <i class="fas fa-user"></i> Process Individual Employee
+                </button>
+            </div>
+        </div>
+        
+        <div id="processing-status" class="processing-status" style="display: none;">
+            <div class="spinner"></div>
+            <span id="status-message">Processing badges...</span>
+        </div>
+        
+        <div id="processing-results" class="processing-results" style="display: none;">
+            <!-- Results will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Recent Badge Awards -->
+    <div class="recent-badges-section">
+        <h2>Recent Badge Awards</h2>
+        {% if recent_badges %}
+            <div class="badges-table">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Badge</th>
+                            <th>Date Earned</th>
+                            <th>Notes</th>
+                            <th>Department</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for badge_award in recent_badges %}
+                        <tr>
+                            <td>
+                                <div class="employee-info">
+                                    <strong>{{ badge_award.employee.first_name }} {{ badge_award.employee.last_name }}</strong>
+                                    <small>{{ badge_award.employee.employee_id }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="badge-info">
+                                    <i class="{{ badge_award.badge.icon }}"></i>
+                                    <span>{{ badge_award.badge.name }}</span>
+                                    <small class="badge-level {{ badge_award.badge.level.value }}">
+                                        {{ badge_award.badge.level.value.title() }}
+                                    </small>
+                                </div>
+                            </td>
+                            <td>{{ badge_award.earned_date.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ badge_award.notes or 'No notes' }}</td>
+                            <td>{{ badge_award.employee.department.name if badge_award.employee.department else 'No Department' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-medal"></i>
+                <p>No attendance badges have been awarded yet.</p>
+                <p>Click "Process All Badges" to start the automation.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Employee Selector Modal -->
+<div class="modal" id="employeeModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Select Employee for Badge Processing</h3>
+            <button class="modal-close" onclick="closeModal('employeeModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="employee_search">Search Employee:</label>
+                <input type="text" id="employee_search" placeholder="Type employee name or ID...">
+            </div>
+            <div id="employee_list" class="employee-list">
+                <!-- Employee list will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.attendance-badge-report {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.page-header h1 {
+    margin: 0;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-left: 4px solid #3b82f6;
+}
+
+.stat-card.gold {
+    border-left-color: #f59e0b;
+}
+
+.stat-card.silver {
+    border-left-color: #6b7280;
+}
+
+.stat-card.platinum {
+    border-left-color: #8b5cf6;
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #4b5563;
+}
+
+.stat-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.processing-section {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.processing-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.processing-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.processing-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f4f6;
+    border-top: 2px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.processing-results {
+    padding: 15px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.recent-badges-section {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.badges-table {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.table th,
+.table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+
+.employee-info strong {
+    display: block;
+    font-weight: 600;
+}
+
+.employee-info small {
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.badge-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge-level {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-level.bronze {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-level.silver {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.badge-level.gold {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.badge-level.platinum {
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 10px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+}
+
+.employee-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+.employee-item {
+    padding: 10px;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.employee-item:hover {
+    background: #f9fafb;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn.btn-primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn.btn-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn.btn-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn.btn-info {
+    background: #06b6d4;
+    color: white;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+</style>
+
+<script>
+async function processAllBadges() {
+    const startDate = document.getElementById('start_date').value;
+    const statusDiv = document.getElementById('processing-status');
+    const resultsDiv = document.getElementById('processing-results');
+    const statusMessage = document.getElementById('status-message');
+    
+    // Show processing status
+    statusDiv.style.display = 'flex';
+    resultsDiv.style.display = 'none';
+    statusMessage.textContent = 'Processing attendance badges for all employees...';
+    
+    try {
+        const response = await fetch(`/biometric/process-attendance-badges?start_date=${startDate}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        // Hide processing status
+        statusDiv.style.display = 'none';
+        
+        if (result.success) {
+            resultsDiv.innerHTML = `
+                <h4>✅ Badge Processing Complete!</h4>
+                <div class="results-summary">
+                    <p><strong>Employees Processed:</strong> ${result.results.employees_processed}</p>
+                    <p><strong>Perfect Month Badges Awarded:</strong> ${result.results.perfect_month_awarded}</p>
+                    <p><strong>Punctuality Champion Badges Awarded:</strong> ${result.results.punctuality_champion_awarded}</p>
+                    <p><strong>Attendance Superstar Badges Awarded:</strong> ${result.results.attendance_superstar_awarded}</p>
+                    <p><strong>Total Badges Awarded:</strong> ${result.results.total_badges_awarded}</p>
+                </div>
+                <p><small>Processing started from: ${result.start_date}</small></p>
+            `;
+            resultsDiv.className = 'processing-results success';
+        } else {
+            resultsDiv.innerHTML = `
+                <h4>❌ Badge Processing Failed</h4>
+                <p>${result.message}</p>
+            `;
+            resultsDiv.className = 'processing-results error';
+        }
+        
+        resultsDiv.style.display = 'block';
+        
+        // Refresh the page after a delay to show updated statistics
+        setTimeout(() => {
+            window.location.reload();
+        }, 3000);
+        
+    } catch (error) {
+        statusDiv.style.display = 'none';
+        resultsDiv.innerHTML = `
+            <h4>❌ Processing Error</h4>
+            <p>An error occurred while processing badges: ${error.message}</p>
+        `;
+        resultsDiv.className = 'processing-results error';
+        resultsDiv.style.display = 'block';
+    }
+}
+
+function refreshReport() {
+    window.location.reload();
+}
+
+function showEmployeeSelector() {
+    // This would load employees and show the modal
+    document.getElementById('employeeModal').classList.add('show');
+    loadEmployees();
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('show');
+}
+
+async function loadEmployees() {
+    try {
+        const response = await fetch('/api/employees');
+        const employees = await response.json();
+        
+        const employeeList = document.getElementById('employee_list');
+        employeeList.innerHTML = employees.map(emp => `
+            <div class="employee-item" onclick="processEmployeeBadges(${emp.id})">
+                <strong>${emp.first_name} ${emp.last_name}</strong>
+                <br>
+                <small>${emp.employee_id} - ${emp.department || 'No Department'}</small>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading employees:', error);
+    }
+}
+
+async function processEmployeeBadges(employeeId) {
+    const startDate = document.getElementById('start_date').value;
+    closeModal('employeeModal');
+    
+    const statusDiv = document.getElementById('processing-status');
+    const resultsDiv = document.getElementById('processing-results');
+    const statusMessage = document.getElementById('status-message');
+    
+    statusDiv.style.display = 'flex';
+    resultsDiv.style.display = 'none';
+    statusMessage.textContent = 'Processing attendance badges for selected employee...';
+    
+    try {
+        const response = await fetch(`/biometric/employee/${employeeId}/process-attendance-badges?start_date=${startDate}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        statusDiv.style.display = 'none';
+        
+        if (result.success) {
+            resultsDiv.innerHTML = `
+                <h4>✅ Badge Processing Complete for Employee!</h4>
+                <div class="results-summary">
+                    <p><strong>Employee:</strong> ${result.message.split(' for ')[1]}</p>
+                    <p><strong>Perfect Month Badges:</strong> ${result.results.perfect_month}</p>
+                    <p><strong>Punctuality Champion Badges:</strong> ${result.results.punctuality_champion}</p>
+                    <p><strong>Attendance Superstar Badges:</strong> ${result.results.attendance_superstar}</p>
+                </div>
+            `;
+            resultsDiv.className = 'processing-results success';
+        } else {
+            resultsDiv.innerHTML = `
+                <h4>❌ Badge Processing Failed</h4>
+                <p>${result.message}</p>
+            `;
+            resultsDiv.className = 'processing-results error';
+        }
+        
+        resultsDiv.style.display = 'block';
+        
+    } catch (error) {
+        statusDiv.style.display = 'none';
+        resultsDiv.innerHTML = `
+            <h4>❌ Processing Error</h4>
+            <p>An error occurred: ${error.message}</p>
+        `;
+        resultsDiv.className = 'processing-results error';
+        resultsDiv.style.display = 'block';
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+        e.target.classList.remove('show');
+    }
+});
+</script>
+{% endblock %}

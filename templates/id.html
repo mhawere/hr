@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IUEA Staff ID Card</title>
+    <style>
+        @page {
+            size: 53.98mm 85.6mm;
+            margin: 0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f4f4;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .id-card {
+            width: 53.98mm;
+            height: 85.6mm;
+            background-color: white;
+            {% if bg_base64 %}
+                background-image: url('data:image/png;base64,{{ bg_base64 }}');
+            {% else %}
+                background-image: repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 2mm,
+                    rgba(128, 0, 0, 0.02) 2mm,
+                    rgba(128, 0, 0, 0.02) 4mm
+                );
+            {% endif %}
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            border-radius: 0mm;
+            overflow: hidden;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border: 2px solid #800000;
+            position: relative;
+            page-break-after: always;
+        }
+        
+        .id-card:last-child {
+            page-break-after: avoid;
+        }
+        
+        .top-section {
+            padding: 4mm;
+            text-align: center;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .logo {
+            width: 35mm;
+            height: 14mm;
+            margin-bottom: 2mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .logo img {
+            width: 100%;
+            height: auto;
+            max-height: 14mm;
+            object-fit: contain;
+        }
+        
+        /* Fallback logo if image doesn't load */
+        .logo-text {
+            background: #800000;
+            color: white;
+            padding: 3mm 6mm;
+            border-radius: 2mm;
+            font-weight: bold;
+            font-size: 9.2px;  /* Increased by 15% from 8px */
+        }
+        
+        .photo {
+            width: 28mm;
+            height: 32mm;
+            border: 2px solid #800000;
+            margin: 1mm auto;
+            overflow: hidden;
+            border-radius: 1mm;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f5f5f5;
+        }
+        
+        .photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .no-photo-placeholder {
+            font-size: 46px;  /* Increased by 15% from 40px */
+            color: #ccc;
+        }
+        
+        .full-name {
+            font-size: 8.6px;  /* Increased by 15% from 7.5px */
+            font-weight: bold;
+            color: #800000;
+            margin-top: 1mm;
+            text-transform: uppercase;
+        }
+        
+        .designation {
+            background: #800000;
+            color: white;
+            padding: 1mm 3mm;
+            margin: 1mm auto 0.5mm;
+            width: fit-content;
+            border-radius: 5mm;
+            font-weight: 500;
+            font-size: 7.5px;  /* Increased by 15% from 6.5px */
+            text-transform: uppercase;
+        }
+        
+        .department {
+            color: #800000;
+            font-weight: bold;
+            font-size: 6.3px;  /* Increased by 15% from 5.5px */
+            margin-bottom: 1mm;
+            text-transform: uppercase;
+        }
+        
+        .footer-red-box {
+            background: #800000;
+            color: white;
+            font-size: 4.4px;  /* Increased by 15% from 3.8px */
+            padding: 2.5mm;
+            border-radius: 3.5mm;
+            text-align: center;
+            line-height: 1.4;
+            margin: 2mm;
+        }
+        
+        .footer-red-box strong {
+            font-weight: bold;
+        }
+        
+        /* Back card specific styles */
+        .card-back .top-section {
+            justify-content: flex-start;
+            padding: 3mm;
+        }
+        
+        .back-info {
+            font-size: 4.2px;  /* Increased by 15% from 4.5px */
+            line-height: 1.8;
+            margin: 2mm 0;
+            padding: 4mm 6mm;
+        }
+        
+        .qr-box {
+            width: 20mm;
+            height: 20mm;
+            border: 2px solid #800000;
+            margin: 2mm auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 1mm;
+            background: white;
+        }
+        
+        .qr-box img {
+            width: 22mm;
+            height: 22mm;
+        }
+        
+        .qr-placeholder {
+            width: 22mm;
+            height: 22mm;
+            background: #f0f0f0;
+            border-radius: 1mm;
+        }
+        
+        /* Employee ID styling */
+        .employee-id {
+            position: absolute;
+            bottom: 3mm;
+            left: 3mm;
+            font-size: 3.5px;  /* Increased by 15% from 3px */
+            color: #800000;
+            font-weight: bold;
+        }
+        
+        /* Print Optimization */
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .id-card {
+                box-shadow: none;
+                margin: 0;
+            }
+            
+            * {
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Front of ID Card -->
+    <div class="id-card card-front">
+        <div class="top-section">
+            <div class="logo">
+                {% if logo_base64 %}
+                    <img src="data:image/png;base64,{{ logo_base64 }}" alt="IUEA Logo">
+                {% else %}
+                    <div class="logo-text">IUEA</div>
+                {% endif %}
+            </div>
+            
+            <div class="photo">
+                {% if photo_base64 %}
+                    <img src="data:image/jpeg;base64,{{ photo_base64 }}" alt="Staff Photo">
+                {% else %}
+                    <div class="no-photo-placeholder">👤</div>
+                {% endif %}
+            </div>
+            
+            <div class="full-name">
+                {{ employee.first_name.upper() }} {{ employee.last_name.upper() }}
+            </div>
+            
+            <div class="designation">
+                {% if employee.position %}
+                    {{ employee.position.upper() }}
+                {% else %}
+                    STAFF MEMBER
+                {% endif %}
+            </div>
+            
+            <div class="department">
+                {% if employee.department %}
+                    {{ employee.department.name.upper() }}
+                {% else %}
+                    GENERAL DEPARTMENT
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="employee-id">ID: {{ employee.employee_id }}</div>
+        
+        <div class="footer-red-box">
+            THIS CARD IS A PROPERTY OF<br>
+            <strong>INTERNATIONAL UNIVERSITY OF EAST AFRICA</strong>
+        </div>
+    </div>
+    
+    <!-- Back of ID Card -->
+    <div class="id-card card-back">
+        <div class="top-section">
+            <div class="logo">
+                {% if logo_base64 %}
+                    <img src="data:image/png;base64,{{ logo_base64 }}" alt="IUEA Logo">
+                {% else %}
+                    <div class="logo-text">IUEA</div>
+                {% endif %}
+            </div>
+            
+            <div class="footer-red-box back-info">
+                Issue Date: {{ issue_date }}<br>
+                Expiry Date: {{ expiry_date }}<br><br>
+                Plot No. 1112/1121 Kansanga,<br>
+                Ggaba Road<br>
+                P.O. Box 35502, Kampala – Uganda<br>
+                Tel: 800 335 335, +256 705 722300<br>
+                info@iuea.ac.ug – www.iuea.ac.ug
+            </div>
+            
+            <div class="qr-box">
+                {% if qr_code_base64 %}
+                    <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code">
+                {% else %}
+                    <div class="qr-placeholder"></div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="footer-red-box">
+            THIS CARD IS A PROPERTY OF<br>
+            <strong>INTERNATIONAL UNIVERSITY OF EAST AFRICA</strong>
+        </div>
+    </div>
+</body>
+</html>

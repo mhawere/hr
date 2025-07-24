@@ -1,0 +1,901 @@
+{% extends "base.html" %}
+
+{% block title %}{{ employee.first_name }} {{ employee.last_name }} - Leave Management{% endblock %}
+
+{% block content %}
+<div class="leave-management-page">
+    <!-- Employee Header -->
+    <div class="employee-leave-header">
+        <div class="employee-info-section">
+            <div class="employee-avatar-large">
+                {% if employee.photo %}
+                    <img src="{{ url_for('static', path=employee.photo) }}" alt="{{ employee.first_name }}">
+                {% else %}
+                    <div class="avatar-placeholder-large">
+                        {{ employee.first_name[0] }}{{ employee.last_name[0] }}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="employee-details">
+                <h1>{{ employee.first_name }} {{ employee.last_name }}</h1>
+                <p class="employee-meta">
+                    <span class="employee-id-badge">{{ employee.employee_id }}</span>
+                    <span class="department">{{ employee.department.name if employee.department else 'No Department' }}</span>
+                </p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="/leave/employee/{{ employee.id }}/create-form" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create Leave Request
+            </a>
+            <a href="/leave/employee/{{ employee.id }}/calendar" class="btn btn-secondary">
+                <i class="fas fa-calendar"></i> View Calendar
+            </a>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    {% if request.query_params.get('success') %}
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        <span>{{ request.query_params.get('success') }}</span>
+        <button type="button" class="alert-close" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    {% endif %}
+
+    {% if request.query_params.get('error') %}
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-circle"></i>
+        <span>{{ request.query_params.get('error') }}</span>
+        <button type="button" class="alert-close" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Leave Balance Overview -->
+    <div class="balance-overview">
+        <h2><i class="fas fa-chart-pie"></i> Leave Balance for {{ current_year }}</h2>
+        
+        {% if balance_data %}
+        <div class="balance-cards">
+            <div class="balance-card">
+                <div class="balance-icon">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <div class="balance-content">
+                    <h3>{{ balance_data.earned_days|round(1) }}</h3>
+                    <p>Earned Days</p>
+                </div>
+            </div>
+            
+            <div class="balance-card">
+                <div class="balance-icon">
+                    <i class="fas fa-calendar-minus"></i>
+                </div>
+                <div class="balance-content">
+                    <h3>{{ balance_data.used_days|round(1) }}</h3>
+                    <p>Used Days</p>
+                </div>
+            </div>
+            
+            <div class="balance-card">
+                <div class="balance-icon">
+                    <i class="fas fa-calendar-day"></i>
+                </div>
+                <div class="balance-content">
+                    <h3>{{ balance_data.remaining_earned|round(1) }}</h3>
+                    <p>Remaining Days</p>
+                </div>
+            </div>
+            
+            <div class="balance-card">
+                <div class="balance-icon">
+                    <i class="fas fa-percentage"></i>
+                </div>
+                <div class="balance-content">
+                    <h3>{{ balance_data.attendance_percentage }}%</h3>
+                    <p>Attendance</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="balance-details">
+            <p class="info-text">
+                <i class="fas fa-info-circle"></i>
+                Based on {{ balance_data.months_worked }} months worked 
+                ({{ balance_data.actual_start_date }} to {{ today.strftime('%Y-%m-%d') }})
+            </p>
+            <button type="button" class="btn btn-sm btn-outline" onclick="showCalculationBreakdown()">
+                <i class="fas fa-calculator"></i> View Calculation
+            </button>
+            <form method="POST" action="/leave/employee/{{ employee.id }}/recalculate" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-info">
+                    <i class="fas fa-sync"></i> Recalculate
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <div class="no-balance-data">
+            <p>No balance data available. Please ensure attendance records exist.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Leave Requests Table -->
+    <div class="leave-requests-section">
+        <div class="section-header">
+            <h2><i class="fas fa-list"></i> Leave Requests</h2>
+            <div class="filter-controls">
+                <form method="GET" action="/leave/employee/{{ employee.id }}" class="filter-form">
+                    <select name="year" class="form-control" onchange="this.form.submit()">
+                        <option value="">All Years</option>
+                        {% for year in range(2020, current_year + 2) %}
+                        <option value="{{ year }}" {% if request.query_params.get('year') == year|string %}selected{% endif %}>
+                            {{ year }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <select name="status" class="form-control" onchange="this.form.submit()">
+                        <option value="">All Status</option>
+                        <option value="active" {% if request.query_params.get('status') == 'active' %}selected{% endif %}>Active</option>
+                        <option value="completed" {% if request.query_params.get('status') == 'completed' %}selected{% endif %}>Completed</option>
+                        <option value="cancelled" {% if request.query_params.get('status') == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                    </select>
+                </form>
+            </div>
+        </div>
+
+        {% if leaves %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Type</th>
+                        <th>Days</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in leaves %}
+                    <tr class="{% if leave.start_date < leave.created_at.date() %}backdated-leave{% endif %}">
+                        <td>
+                            {{ leave.start_date.strftime('%Y-%m-%d') }}
+                            {% if leave.start_date < leave.created_at.date() %}
+                            <span class="badge badge-warning" title="Backdated Entry">BD</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ leave.end_date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <span class="leave-type-badge" style="background-color: {{ leave.leave_type.color }};">
+                                {{ leave.leave_type.name }}
+                            </span>
+                        </td>
+                        <td>{{ leave.days_requested }}</td>
+                        <td class="reason-cell">{{ leave.reason[:50] }}{% if leave.reason|length > 50 %}...{% endif %}</td>
+                        <td>
+                            <span class="status-badge status-{{ leave.status.value.lower() }}">
+                                {{ leave.status.value }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                {% if leave.status.value == 'ACTIVE' and leave.start_date > today %}
+                                    <a href="/leave/edit/{{ leave.id }}" class="btn btn-sm btn-primary" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="POST" action="/leave/cancel/{{ leave.id }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-danger" 
+                                                title="Cancel" 
+                                                onclick="return confirm('Are you sure you want to cancel this leave?');">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                {% if leave.attachment %}
+                                    <a href="/leave/download/{{ leave.id }}/attachment" 
+                                       class="btn btn-sm btn-info" 
+                                       title="Download Attachment">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-secondary" 
+                                        onclick="viewLeaveDetails({{ leave.id }})" 
+                                        title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-data">
+            <i class="fas fa-calendar-times"></i>
+            <p>No leave requests found.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Public Holidays Section -->
+    <div class="public-holidays-section">
+        <h2><i class="fas fa-calendar-alt"></i> Public Holidays {{ current_year }}</h2>
+        {% if public_holidays %}
+        <div class="holidays-grid">
+            {% for holiday in public_holidays %}
+            <div class="holiday-card">
+                <div class="holiday-date">
+                    {{ holiday.date.strftime('%b %d') }}
+                </div>
+                <div class="holiday-name">
+                    {{ holiday.name }}
+                </div>
+                {% if holiday.description %}
+                <div class="holiday-description">
+                    {{ holiday.description }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="no-data">No public holidays configured for {{ current_year }}.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Leave Details Modal (Simple) -->
+<div id="leaveDetailsModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Leave Details</h3>
+            <button type="button" class="close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="leaveDetailsContent">
+            <!-- Content will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- Calculation Breakdown Modal -->
+<div id="calculationModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Leave Calculation Breakdown</h3>
+            <button type="button" class="close" onclick="closeCalculationModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="calculationContent">
+            <!-- Content will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<style>
+/* Page Layout */
+.leave-management-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Employee Header */
+.employee-leave-header {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2rem;
+}
+
+.employee-info-section {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.employee-avatar-large {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid var(--primary-color);
+}
+
+.avatar-placeholder-large {
+    width: 100%;
+    height: 100%;
+    background: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.employee-details h1 {
+    margin: 0 0 0.5rem;
+    color: var(--primary-color);
+}
+
+.employee-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--text-secondary);
+}
+
+/* Alert Styles */
+.alert {
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.alert-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.alert-close {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.alert-close:hover {
+    opacity: 1;
+}
+
+/* Balance Overview */
+.balance-overview {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.balance-overview h2 {
+    color: var(--primary-color);
+    margin-bottom: 1.5rem;
+}
+
+.balance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.balance-card {
+    background: #f8f9fa;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: transform 0.2s ease;
+}
+
+.balance-card:hover {
+    transform: translateY(-2px);
+}
+
+.balance-icon {
+    width: 3rem;
+    height: 3rem;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.balance-content h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.balance-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.balance-details {
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.info-text {
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* Leave Requests Section */
+.leave-requests-section {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.section-header h2 {
+    color: var(--primary-color);
+    margin: 0;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.filter-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.filter-form select {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* Table Styles */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.reason-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.leave-type-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.backdated-leave {
+    background-color: #fffbf0;
+}
+
+.badge {
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.badge-warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+/* Public Holidays Section */
+.public-holidays-section {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.public-holidays-section h2 {
+    color: var(--primary-color);
+    margin-bottom: 1.5rem;
+}
+
+.holidays-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.holiday-card {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+.holiday-date {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.holiday-name {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.holiday-description {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 1rem;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: var(--primary-color);
+}
+
+.close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .employee-leave-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .employee-info-section {
+        flex-direction: column;
+    }
+    
+    .header-actions {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .header-actions .btn {
+        width: 100%;
+    }
+    
+    .balance-cards {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .balance-details {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-form {
+        flex-direction: column;
+    }
+    
+    .filter-form select {
+        width: 100%;
+    }
+    
+    .holidays-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    /* Hide some table columns on mobile */
+    .data-table th:nth-child(5),
+    .data-table td:nth-child(5) {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .balance-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .holidays-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Utility Classes */
+.btn-outline {
+    background: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.btn-outline:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.no-data {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+.no-data i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.no-balance-data {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+/* Additional styles for calculation breakdown */
+.calculation-breakdown {
+    padding: 1rem;
+}
+
+.breakdown-table {
+    width: 100%;
+    margin: 1rem 0;
+}
+
+.breakdown-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.breakdown-table td:first-child {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.formula-note {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 1rem;
+}
+
+.loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+.error {
+    color: var(--error-color);
+    text-align: center;
+    padding: 1rem;
+}
+</style>
+
+<script>
+// Minimal JavaScript for essential features
+let currentLeaveData = {};
+
+// View leave details
+function viewLeaveDetails(leaveId) {
+    // Find leave data from the page (you could also fetch from API)
+    const modal = document.getElementById('leaveDetailsModal');
+    const content = document.getElementById('leaveDetailsContent');
+    
+    // Simple display of leave info
+    content.innerHTML = `
+        <div class="loading">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+    `;
+    
+    modal.style.display = 'flex';
+    
+    // In a real implementation, fetch details from server
+    // For now, just show a message
+    setTimeout(() => {
+        content.innerHTML = `
+            <p>Leave ID: ${leaveId}</p>
+            <p>Full details would be loaded here from the server.</p>
+        `;
+    }, 500);
+}
+
+// Close modal
+function closeModal() {
+    document.getElementById('leaveDetailsModal').style.display = 'none';
+}
+
+// Show calculation breakdown
+function showCalculationBreakdown() {
+    const modal = document.getElementById('calculationModal');
+    const content = document.getElementById('calculationContent');
+    
+    content.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading calculation...</div>';
+    modal.style.display = 'flex';
+    
+    // Fetch calculation breakdown
+    fetch(`/leave/employee/{{ employee.id }}/calculation-breakdown`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const breakdown = data.data;
+                content.innerHTML = `
+                    <div class="calculation-breakdown">
+                        <h4>Calculation Details</h4>
+                        <table class="breakdown-table">
+                            <tr>
+                                <td>Employee:</td>
+                                <td><strong>${breakdown.employee_name}</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Period:</td>
+                                <td>${breakdown.period}</td>
+                            </tr>
+                            <tr>
+                                <td>Months Worked:</td>
+                                <td>${breakdown.months_worked}</td>
+                            </tr>
+                            <tr>
+                                <td>Working Days:</td>
+                                <td>${breakdown.actual_working_days} / ${breakdown.total_possible_working_days}</td>
+                            </tr>
+                            <tr>
+                                <td>Attendance %:</td>
+                                <td>${breakdown.attendance_percentage}%</td>
+                            </tr>
+                            <tr>
+                                <td>Max Entitled:</td>
+                                <td>${breakdown.max_entitled_days} days</td>
+                            </tr>
+                            <tr>
+                                <td>Earned Days:</td>
+                                <td><strong>${breakdown.earned_days} days</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Used Days:</td>
+                                <td>${breakdown.used_days} days</td>
+                            </tr>
+                            <tr>
+                                <td>Remaining:</td>
+                                <td><strong>${breakdown.remaining_earned} days</strong></td>
+                            </tr>
+                        </table>
+                        <p class="formula-note">
+                            <i class="fas fa-info-circle"></i>
+                            Earned days = Max(90% of entitled, Attendance-based calculation)
+                        </p>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = '<p class="error">Failed to load calculation breakdown.</p>';
+            }
+        })
+        .catch(error => {
+            content.innerHTML = '<p class="error">Error loading calculation breakdown.</p>';
+        });
+}
+
+// Close calculation modal
+function closeCalculationModal() {
+    document.getElementById('calculationModal').style.display = 'none';
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.style.display = 'none';
+        });
+    }
+});
+
+// Add loading state to forms
+document.addEventListener('DOMContentLoaded', function() {
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function() {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

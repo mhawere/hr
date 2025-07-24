@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>{% block title %}HR Management System{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', path='/images/logos/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', path='/images/logos/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', path='/images/logos/favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ url_for('static', path='/images/logos/site.webmanifest') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', path='/images/logos/favicon.ico') }}">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="theme-color" content="#6b1e1e">
+    
+    <!-- Preload critical CSS -->
+    <link rel="preload" href="{{ url_for('static', path='/css/style.css') }}" as="style">
+    
+    <!-- External CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', path='/css/style.css') }}" rel="stylesheet">
+    
+    <!-- Critical responsive styles + Tessa Chat Styles -->
+    <style>
+        /* Critical responsive styles to prevent FOUC */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0 !important; }
+            .sidebar-toggle { display: block !important; }
+        }
+        
+        /* Prevent horizontal scrolling */
+        html, body { 
+            overflow-x: hidden; 
+            max-width: 100vw;
+        }
+        
+        /* Touch-friendly elements */
+        @media (hover: none) and (pointer: coarse) {
+            .btn, .nav-link, .action-link {
+                min-height: 44px;
+                min-width: 44px;
+            }
+        }
+
+        /* uncomment here  */
+        /* .tessa-chat-bubble, .tessa-chat-window { display: none !important; } */
+
+        /* Tessa Chat Styles */
+        .tessa-chat-bubble {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            cursor: pointer;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            border: none;
+            color: white;
+            font-size: 24px;
+            padding: 8px;
+        }
+
+        .tessa-chat-bubble img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .tessa-chat-bubble:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 25px rgba(0,0,0,0.2);
+        }
+
+        .tessa-chat-bubble.minimized {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .tessa-chat-window {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 380px;
+            height: 500px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            z-index: 999;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+
+        .tessa-chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .tessa-chat-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+
+        .tessa-chat-header .tessa-header-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-right: 8px;
+            object-fit: cover;
+        }
+
+        .tessa-status {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+
+        .tessa-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .tessa-close-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .tessa-chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .tessa-message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .tessa-message.user {
+            flex-direction: row-reverse;
+        }
+
+        .tessa-message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: white;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .tessa-message-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .tessa-message.user .tessa-message-avatar {
+            background: #6c757d;
+        }
+
+        .tessa-message.assistant .tessa-message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .tessa-message-content {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 75%;
+            word-wrap: break-word;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            line-height: 1.4;
+            font-size: 14px;
+        }
+
+        .tessa-message.user .tessa-message-content {
+            background: #007bff;
+            color: white;
+        }
+
+        .tessa-message.loading .tessa-message-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tessa-typing-indicator {
+            display: flex;
+            gap: 4px;
+        }
+
+        .tessa-typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #666;
+            border-radius: 50%;
+            animation: tessaTyping 1.4s infinite ease-in-out;
+        }
+
+        .tessa-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .tessa-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes tessaTyping {
+            0%, 80%, 100% { opacity: 0.3; }
+            40% { opacity: 1; }
+        }
+
+        .tessa-chat-input {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            background: white;
+        }
+
+        .tessa-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .tessa-input-field {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 10px 15px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+            resize: none;
+            max-height: 100px;
+            min-height: 40px;
+        }
+
+        .tessa-input-field:focus {
+            border-color: #667eea;
+        }
+
+        .tessa-send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .tessa-send-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        .tessa-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .tessa-chat-window {
+                width: calc(100vw - 40px);
+                height: calc(100vh - 140px);
+                right: 20px;
+                bottom: 90px;
+            }
+
+            .tessa-chat-bubble {
+                bottom: 20px;
+                right: 20px;
+                width: 55px;
+                height: 55px;
+                font-size: 22px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .tessa-chat-window {
+                width: calc(100vw - 20px);
+                right: 10px;
+                bottom: 80px;
+            }
+
+            .tessa-chat-bubble {
+                right: 15px;
+                bottom: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile Sidebar Toggle -->
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle Navigation Menu" style="display: none;">
+        <i class="fas fa-bars" aria-hidden="true"></i>
+    </button>
+
+    <!-- Sidebar Overlay for Mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999;"></div>
+
+    <div class="app-container">
+        {% if user %}
+            <nav class="sidebar modern" id="sidebar" role="navigation" aria-label="Main Navigation">
+                {% include 'components/sidebar.html' %}
+            </nav>
+        {% endif %}
+        
+        <div class="main-content {% if not user %}no-sidebar{% endif %}" id="mainContent">
+            {% if user %}
+                <header class="top-header" role="banner">
+                    <div class="header-content">
+                        <!-- Mobile Menu Button -->
+                        <button class="mobile-menu-btn" id="mobileSidebarToggle" aria-label="Open Navigation Menu" style="display: none; background: none; border: none; color: var(--primary-color); font-size: 1.5rem; padding: 0.5rem; margin-right: 1rem; cursor: pointer;">
+                            <i class="fas fa-bars" aria-hidden="true"></i>
+                        </button>
+                        
+                        <div class="header-title">
+                            <h1>{% block page_title %}{{ page_title or 'Dashboard' }}{% endblock %}</h1>
+                        </div>
+                        
+                        <div class="header-user-info">
+                            <span class="welcome-text" aria-label="Welcome message">
+                                <span class="welcome-full">Welcome, {{ user.username if user else 'Guest' }}</span>
+                                <span class="welcome-short" style="display: none;">{{ user.username if user else 'Guest' }}</span>
+                            </span>
+                            <a href="/auth/logout" class="header-logout-btn" role="button" aria-label="Logout from system">
+                                <i class="fas fa-sign-out-alt" aria-hidden="true"></i> 
+                                <span class="logout-text">Logout</span>
+                                <span class="logout-icon-only" style="display: none;" aria-label="Logout"></span>
+                            </a>
+                        </div>
+                    </div>
+                </header>
+            {% endif %}
+            
+            <main class="content" role="main" id="mainContentArea">
+                <!-- Alert Messages -->
+                {% if error %}
+                    <div class="alert alert-error" role="alert" aria-live="polite">
+                        <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+                        <span>{{ error }}</span>
+                        <button type="button" class="alert-close" aria-label="Close alert" onclick="this.parentElement.remove()">
+                            <i class="fas fa-times" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                {% endif %}
+                
+                {% if success %}
+                    <div class="alert alert-success" role="alert" aria-live="polite">
+                        <i class="fas fa-check-circle" aria-hidden="true"></i>
+                        <span>{{ success }}</span>
+                        <button type="button" class="alert-close" aria-label="Close alert" onclick="this.parentElement.remove()">
+                            <i class="fas fa-times" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                {% endif %}
+                
+                <!-- Page Content -->
+                <div class="page-content">
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Tessa Chat Interface (Only show if user is logged in) -->
+    {% if user %}
+    <!-- Chat Bubble -->
+    <button class="tessa-chat-bubble" id="tessaChatBubble" aria-label="Open Tessa AI Assistant">
+        <img src="{{ url_for('static', path='/images/botgirl.jpeg') }}" alt="Tessa AI Assistant" />
+    </button>
+
+    <!-- Chat Window -->
+    <div class="tessa-chat-window" id="tessaChatWindow">
+        <div class="tessa-chat-header">
+            <div>
+                <h3>
+                    <img src="{{ url_for('static', path='/images/botgirl.jpeg') }}" alt="Tessa" class="tessa-header-icon" />
+                    Tessa
+                </h3>
+                <div class="tessa-status">Tech-Enabled Smart System Assistant</div>
+            </div>
+            <button class="tessa-close-btn" id="tessaCloseBtn" aria-label="Close chat">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="tessa-chat-messages" id="tessaChatMessages">
+            <div class="tessa-message assistant">
+                <div class="tessa-message-avatar">
+                    <img src="{{ url_for('static', path='/images/botgirl.jpeg') }}" alt="Tessa" />
+                </div>
+                <div class="tessa-message-content">
+                    Hi! I'm <strong>Tessa</strong>, your HR Assistant. I can help you with employee data, attendance reports, department insights, and more. What would you like to know?
+                </div>
+            </div>
+        </div>
+        
+        <div class="tessa-chat-input">
+            <div class="tessa-input-group">
+                <textarea 
+                    class="tessa-input-field" 
+                    id="tessaChatInput" 
+                    placeholder="Ask me about employees, attendance, departments..."
+                    rows="1"
+                    maxlength="500"></textarea>
+                <button class="tessa-send-btn" id="tessaSendBtn" aria-label="Send message">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Skip to main content link for accessibility -->
+    <a href="#mainContentArea" class="skip-link" style="position: absolute; top: -40px; left: 6px; background: var(--primary-color); color: white; padding: 8px; text-decoration: none; border-radius: 4px; z-index: 1000;">Skip to main content</a>
+
+    <!-- Scripts -->
+    <script>
+        // Critical mobile functionality - Load immediately
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMobileNavigation();
+            initializeResponsiveElements();
+            initializeSwipeGestures();
+            initializeTessaChat();
+        });
+
+        function initializeMobileNavigation() {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const mainContent = document.getElementById('mainContent');
+
+            // Show mobile elements on small screens
+            function updateMobileDisplay() {
+                const isMobile = window.innerWidth <= 768;
+                
+                if (sidebarToggle) sidebarToggle.style.display = isMobile ? 'block' : 'none';
+                if (mobileSidebarToggle) mobileSidebarToggle.style.display = isMobile ? 'block' : 'none';
+                
+                // Reset sidebar state on desktop
+                if (!isMobile && sidebar) {
+                    sidebar.classList.remove('open');
+                    if (sidebarOverlay) sidebarOverlay.style.display = 'none';
+                    document.body.style.overflow = '';
+                }
+            }
+
+            // Toggle sidebar function
+            function toggleSidebar() {
+                if (!sidebar) return;
+                
+                const isOpen = sidebar.classList.contains('open');
+                
+                if (isOpen) {
+                    sidebar.classList.remove('open');
+                    if (sidebarOverlay) sidebarOverlay.style.display = 'none';
+                    document.body.style.overflow = '';
+                } else {
+                    sidebar.classList.add('open');
+                    if (sidebarOverlay) sidebarOverlay.style.display = 'block';
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+
+            // Event listeners
+            if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebar);
+            if (mobileSidebarToggle) mobileSidebarToggle.addEventListener('click', toggleSidebar);
+            if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
+
+            // Close sidebar when clicking on nav links (mobile)
+            if (sidebar) {
+                sidebar.addEventListener('click', function(e) {
+                    if (e.target.closest('.nav-link') && window.innerWidth <= 768) {
+                        setTimeout(toggleSidebar, 200);
+                    }
+                });
+            }
+
+            // Initialize and update on resize
+            updateMobileDisplay();
+            window.addEventListener('resize', updateMobileDisplay);
+        }
+
+        function initializeResponsiveElements() {
+            // Handle responsive text
+            function updateResponsiveText() {
+                const isMobile = window.innerWidth <= 768;
+                const isSmall = window.innerWidth <= 480;
+                
+                // Welcome text
+                const welcomeFull = document.querySelector('.welcome-full');
+                const welcomeShort = document.querySelector('.welcome-short');
+                if (welcomeFull && welcomeShort) {
+                    welcomeFull.style.display = isMobile ? 'none' : 'inline';
+                    welcomeShort.style.display = isMobile ? 'inline' : 'none';
+                }
+                
+                // Logout button text
+                const logoutText = document.querySelector('.logout-text');
+                const logoutIconOnly = document.querySelector('.logout-icon-only');
+                if (logoutText && logoutIconOnly) {
+                    logoutText.style.display = isSmall ? 'none' : 'inline';
+                    logoutIconOnly.style.display = isSmall ? 'inline' : 'none';
+                }
+            }
+
+            // Initialize and update on resize
+            updateResponsiveText();
+            window.addEventListener('resize', updateResponsiveText);
+
+            // Handle orientation change
+            window.addEventListener('orientationchange', function() {
+                setTimeout(updateResponsiveText, 100);
+            });
+        }
+
+        function initializeSwipeGestures() {
+            // Simple swipe gesture for mobile sidebar
+            let touchStartX = null;
+            let touchEndX = null;
+
+            document.addEventListener('touchstart', function(e) {
+                touchStartX = e.changedTouches[0].screenX;
+            });
+
+            document.addEventListener('touchend', function(e) {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            });
+
+            function handleSwipe() {
+                if (!touchStartX || !touchEndX) return;
+                
+                const sidebar = document.getElementById('sidebar');
+                if (!sidebar || window.innerWidth > 768) return;
+                
+                const swipeDistance = touchEndX - touchStartX;
+                const minSwipeDistance = 50;
+                
+                // Swipe right to open (from left edge)
+                if (swipeDistance > minSwipeDistance && touchStartX < 50 && !sidebar.classList.contains('open')) {
+                    sidebar.classList.add('open');
+                    document.getElementById('sidebarOverlay').style.display = 'block';
+                    document.body.style.overflow = 'hidden';
+                }
+                
+                // Swipe left to close
+                if (swipeDistance < -minSwipeDistance && sidebar.classList.contains('open')) {
+                    sidebar.classList.remove('open');
+                    document.getElementById('sidebarOverlay').style.display = 'none';
+                    document.body.style.overflow = '';
+                }
+                
+                // Reset touch values
+                touchStartX = null;
+                touchEndX = null;
+            }
+        }
+
+        // Tessa Chat Functionality
+        function initializeTessaChat() {
+            const chatBubble = document.getElementById('tessaChatBubble');
+            const chatWindow = document.getElementById('tessaChatWindow');
+            const closeBtn = document.getElementById('tessaCloseBtn');
+            const sendBtn = document.getElementById('tessaSendBtn');
+            const inputField = document.getElementById('tessaChatInput');
+            const messagesContainer = document.getElementById('tessaChatMessages');
+
+            if (!chatBubble || !chatWindow) return;
+
+            let isOpen = false;
+
+            // Toggle chat window
+            function toggleChat() {
+                isOpen = !isOpen;
+                chatWindow.style.display = isOpen ? 'flex' : 'none';
+                chatBubble.classList.toggle('minimized', isOpen);
+                
+                if (isOpen) {
+                    inputField.focus();
+                    scrollToBottom();
+                }
+            }
+
+            // Close chat
+            function closeChat() {
+                isOpen = false;
+                chatWindow.style.display = 'none';
+                chatBubble.classList.remove('minimized');
+            }
+
+            // Scroll to bottom of messages
+            function scrollToBottom() {
+                setTimeout(() => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }, 100);
+            }
+
+            // Add message to chat
+            function addMessage(content, isUser = false, isLoading = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `tessa-message ${isUser ? 'user' : 'assistant'}${isLoading ? ' loading' : ''}`;
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'tessa-message-avatar';
+                
+                if (isUser) {
+                    avatar.innerHTML = '<i class="fas fa-user"></i>';
+                } else {
+                    avatar.innerHTML = `<img src="{{ url_for('static', path='/images/botgirl.jpeg') }}" alt="Tessa" />`;
+                }
+                
+                const messageContent = document.createElement('div');
+                messageContent.className = 'tessa-message-content';
+                
+                if (isLoading) {
+                    messageContent.innerHTML = `
+                        <span>Tessa is thinking...</span>
+                        <div class="tessa-typing-indicator">
+                            <div class="tessa-typing-dot"></div>
+                            <div class="tessa-typing-dot"></div>
+                            <div class="tessa-typing-dot"></div>
+                        </div>
+                    `;
+                } else {
+                    messageContent.innerHTML = content;
+                }
+                
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+                messagesContainer.appendChild(messageDiv);
+                scrollToBottom();
+                
+                return messageDiv;
+            }
+
+            // Send message to Tessa
+            async function sendMessage() {
+                const message = inputField.value.trim();
+                if (!message) return;
+
+                // Add user message
+                addMessage(message, true);
+                inputField.value = '';
+                
+                // Show loading
+                const loadingMessage = addMessage('', false, true);
+                sendBtn.disabled = true;
+
+                try {
+                    const response = await fetch('/ai/query', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            query: message,
+                            analysis_depth: 'standard'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    // Remove loading message
+                    loadingMessage.remove();
+                    
+                    // Add Tessa's response
+                    addMessage(data.response || 'Sorry, I encountered an error processing your request.', false, false, data);
+                    
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    loadingMessage.remove();
+                    addMessage('Sorry, I\'m having trouble connecting right now. Please try again in a moment.');
+                } finally {
+                    sendBtn.disabled = false;
+                }
+            }
+
+            // Auto-resize textarea
+            function autoResize() {
+                inputField.style.height = 'auto';
+                inputField.style.height = Math.min(inputField.scrollHeight, 100) + 'px';
+            }
+
+            
+            // Enhanced message handling for visualizations
+            function addMessage(content, isUser = false, isLoading = false, data = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `tessa-message ${isUser ? 'user' : 'assistant'}${isLoading ? ' loading' : ''}`;
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'tessa-message-avatar';
+                
+                if (isUser) {
+                    avatar.innerHTML = '<i class="fas fa-user"></i>';
+                } else {
+                    avatar.innerHTML = `<img src="{{ url_for('static', path='/images/botgirl.jpeg') }}" alt="Tessa" />`;
+                }
+                
+                const messageContent = document.createElement('div');
+                messageContent.className = 'tessa-message-content';
+                
+                if (isLoading) {
+                    messageContent.innerHTML = `
+                        <span>Tessa is thinking...</span>
+                        <div class="tessa-typing-indicator">
+                            <div class="tessa-typing-dot"></div>
+                            <div class="tessa-typing-dot"></div>
+                            <div class="tessa-typing-dot"></div>
+                        </div>
+                    `;
+                } else {
+                    // Parse content for special formatting
+                    let formattedContent = content;
+                    
+                    // Handle visualization data
+                    if (data && data.visualization && data.visualization.type === 'image/png') {
+                        formattedContent += createVisualizationHTML(data.visualization);
+                    }
+                    
+                    messageContent.innerHTML = formattedContent;
+                }
+                
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+                messagesContainer.appendChild(messageDiv);
+                scrollToBottom();
+                
+                return messageDiv;
+            }
+            
+            // Create visualization HTML
+            function createVisualizationHTML(vizData) {
+                const imageId = 'viz_' + Date.now();
+                const html = `
+                    <div class="tessa-visualization" style="margin-top: 15px;">
+                        <img id="${imageId}" 
+                             src="data:${vizData.type};base64,${vizData.data}" 
+                             alt="Data Visualization" 
+                             style="width: 100%; max-width: 500px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
+                             onclick="window.open(this.src, '_blank')">
+                        <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="downloadVisualization('${imageId}', '${vizData.filename || 'visualization.png'}')" 
+                                    style="background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                            <button onclick="window.open(document.getElementById('${imageId}').src, '_blank')" 
+                                    style="background: #764ba2; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-expand"></i> View Full Size
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return html;
+            }
+            
+            // Download visualization function
+            function downloadVisualization(imageId, filename) {
+                const img = document.getElementById(imageId);
+                if (!img) return;
+                
+                const link = document.createElement('a');
+                link.href = img.src;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            // Event listeners
+            chatBubble.addEventListener('click', toggleChat);
+            closeBtn.addEventListener('click', closeChat);
+            sendBtn.addEventListener('click', sendMessage);
+            
+            inputField.addEventListener('input', autoResize);
+            inputField.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Close chat when clicking outside (mobile)
+            document.addEventListener('click', function(e) {
+                if (isOpen && window.innerWidth <= 768) {
+                    if (!chatWindow.contains(e.target) && !chatBubble.contains(e.target)) {
+                        closeChat();
+                    }
+                }
+            });
+        }
+
+        // Handle focus management for accessibility
+        function manageFocus() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            
+            sidebar.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                    sidebar.classList.remove('open');
+                    document.getElementById('sidebarOverlay').style.display = 'none';
+                    document.body.style.overflow = '';
+                    document.getElementById('sidebarToggle').focus();
+                }
+            });
+        }
+
+        // Initialize focus management
+        document.addEventListener('DOMContentLoaded', manageFocus);
+    </script>
+
+    <!-- Main application script -->
+    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
+    
+    <!-- Additional page-specific scripts -->
+    {% block scripts %}{% endblock %}
+
+    <!-- Service Worker for offline functionality (optional) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                // Register service worker if available
+                // navigator.serviceWorker.register('/sw.js');
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<aside class="sidebar modern">
+    <div class="sidebar-header modern">
+        <div class="logo-container">
+            <img src="{{ url_for('static', path='/images/logos/apple-touch-icon.png') }}" alt="HR System Logo" class="logo-image">
+        </div>
+        <h2>HR System</h2>
+        <p class="tagline">AI powered workforce manager</p>
+    </div>
+    
+    <nav class="sidebar-nav modern">
+        <ul>
+            <li class="nav-item">
+                <a href="/dashboard/" class="nav-link {% if '/dashboard/' in request.url.path %}active{% endif %}">
+                    <div class="nav-icon">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
+                    <span class="nav-text">Dashboard</span>
+                    <div class="nav-indicator"></div>
+                </a>
+            </li>
+            
+            <li class="nav-section">
+                <div class="section-divider"></div>
+                <span class="nav-section-title">
+                    <i class="fas fa-users"></i>
+                    Staff Management
+                </span>
+            </li>
+            
+            <li class="nav-item">
+                <a href="/staff/add" class="nav-link {% if '/staff/add' in request.url.path %}active{% endif %}">
+                    <div class="nav-icon">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <span class="nav-text">Add Employee</span>
+                    <div class="nav-indicator"></div>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a href="/staff/view" class="nav-link {% if '/staff/view' in request.url.path %}active{% endif %}">
+                    <div class="nav-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <span class="nav-text">All Employees</span>
+                    <div class="nav-indicator"></div>
+                </a>
+            </li>
+            
+            <li class="nav-section">
+                <div class="section-divider"></div>
+                <span class="nav-section-title">
+                    <i class="fas fa-clock"></i>
+                    Attendance
+                </span>
+            </li>
+            
+            <li class="nav-item">
+                <a href="/attendance/shift-manager" class="nav-link {% if '/attendance/shift-manager' in request.url.path %}active{% endif %}">
+                    <div class="nav-icon">
+                        <i class="fas fa-business-time"></i>
+                    </div>
+                    <span class="nav-text">Shift Manager</span>
+                    <div class="nav-indicator"></div>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a href="/reports/" class="nav-link {% if '/reports/' in request.url.path %}active{% endif %}">
+                    <div class="nav-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <span class="nav-text">Report Builder</span>
+                    <div class="nav-indicator"></div>
+                </a>
+            </li>
+            
+            <li class="nav-section">
+                <div class="section-divider"></div>
+                <span class="nav-section-title">
+                    <i class="fas fa-cog"></i>
+                    System
+                </span>
+            </li>
+            
+            <li class="nav-item">
+                <a href="/settings/" class="nav-link {% if '/settings/' in request.url.path %}active{% endif %}">
+                    <div class="nav-icon">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <span class="nav-text">Settings</span>
+                    <div class="nav-indicator"></div>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    
+    <div class="sidebar-actions">
+        <a href="/auth/logout" class="logout-btn modern">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span>
+        </a>
+    </div>
+</aside>
